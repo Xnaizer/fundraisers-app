@@ -1,0 +1,20 @@
+{
+  "network": "lisk-sepolia",
+  "chainId": 4202,
+  "contracts": {
+    "idrx": {
+      "address": "0x24A7e58b751e42997c6f5f11165bD7FDcb3a9d80",
+      "decimals": "2",
+      "txHash": "0x51b241ff4e34974bf94c3805d341fd2a9fa5d58ec2cd8eae945fcd9f9ef4b589",
+      "blockscoutUrl": "https://sepolia-blockscout.lisk.com/address/0x24A7e58b751e42997c6f5f11165bD7FDcb3a9d80"
+    },
+    "fundraisers": {
+      "address": "0x3D88Da03Bc05f17F7CCfb7A7d2EdBd634D7d9aE0",
+      "txHash": "0x04dd25ea68339af86f70f6be1e3ac58d35a3b9c48772ed431586fc44ea198e1b",
+      "blockscoutUrl": "https://sepolia-blockscout.lisk.com/address/0x3D88Da03Bc05f17F7CCfb7A7d2EdBd634D7d9aE0"
+    }
+  },
+  "deployer": "0x3ff8C245C6499062A98Ed214EA606Ec5fa2627Dd",
+  "deployedAt": "2025-07-11T14:12:54.018Z",
+  "totalIDRXMinted": "200000.0"
+}

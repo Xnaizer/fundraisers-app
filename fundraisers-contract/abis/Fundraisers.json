@@ -1,0 +1,268 @@
+[
+  {
+    "type": "constructor",
+    "stateMutability": "undefined",
+    "payable": false,
+    "inputs": [{ "type": "address", "name": "_tokenAddress" }]
+  },
+  {
+    "type": "event",
+    "anonymous": false,
+    "name": "FundAllocated",
+    "inputs": [
+      { "type": "uint256", "name": "programId", "indexed": true },
+      { "type": "uint256", "name": "amount", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "anonymous": false,
+    "name": "FundSent",
+    "inputs": [
+      { "type": "address", "name": "sender", "indexed": true },
+      { "type": "uint256", "name": "amount", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "anonymous": false,
+    "name": "FundWithdrawn",
+    "inputs": [
+      { "type": "uint256", "name": "programId", "indexed": true },
+      { "type": "address", "name": "pic", "indexed": true },
+      { "type": "string", "name": "history", "indexed": false },
+      { "type": "uint256", "name": "amount", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "anonymous": false,
+    "name": "ProgramCreated",
+    "inputs": [
+      { "type": "uint256", "name": "programId", "indexed": true },
+      { "type": "string", "name": "name", "indexed": false },
+      { "type": "uint256", "name": "target", "indexed": false },
+      { "type": "address", "name": "pic", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "anonymous": false,
+    "name": "ProgramUpdated",
+    "inputs": [
+      { "type": "uint256", "name": "programId", "indexed": true },
+      { "type": "string", "name": "name", "indexed": false },
+      { "type": "string", "name": "picName", "indexed": false }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "allocateFund",
+    "constant": false,
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "_programId" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "createProgram",
+    "constant": false,
+    "payable": false,
+    "inputs": [
+      {
+        "type": "tuple",
+        "name": "input",
+        "components": [
+          { "type": "string", "name": "name" },
+          { "type": "string", "name": "picName" },
+          { "type": "uint256", "name": "target" },
+          { "type": "string", "name": "desc" },
+          { "type": "address", "name": "pic" },
+          { "type": "string", "name": "category" },
+          { "type": "string", "name": "programLink" },
+          { "type": "string", "name": "photoUrl" }
+        ]
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "deactivateProgram",
+    "constant": false,
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "_programId" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "getAllProgram",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "tuple[]",
+        "name": "",
+        "components": [
+          { "type": "uint256", "name": "id" },
+          { "type": "string", "name": "name" },
+          { "type": "string", "name": "picName" },
+          { "type": "uint256", "name": "target" },
+          { "type": "string", "name": "desc" },
+          { "type": "address", "name": "pic" },
+          { "type": "uint8", "name": "status" },
+          { "type": "uint256", "name": "allocated" },
+          { "type": "string", "name": "category" },
+          { "type": "string", "name": "programLink" },
+          { "type": "string", "name": "photoUrl" }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getProgramHistory",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "_programId" }],
+    "outputs": [
+      {
+        "type": "tuple[]",
+        "name": "",
+        "components": [
+          { "type": "uint256", "name": "timestamp" },
+          { "type": "string", "name": "history" },
+          { "type": "uint256", "name": "amount" }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "idrxToken",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [],
+    "outputs": [{ "type": "address", "name": "" }]
+  },
+  {
+    "type": "function",
+    "name": "markProgramAsFinished",
+    "constant": false,
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "_programId" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [],
+    "outputs": [{ "type": "address", "name": "" }]
+  },
+  {
+    "type": "function",
+    "name": "programHistories",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [
+      { "type": "uint256", "name": "" },
+      { "type": "uint256", "name": "" }
+    ],
+    "outputs": [
+      { "type": "uint256", "name": "timestamp" },
+      { "type": "string", "name": "history" },
+      { "type": "uint256", "name": "amount" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "programs",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "" }],
+    "outputs": [
+      { "type": "uint256", "name": "id" },
+      { "type": "string", "name": "name" },
+      { "type": "string", "name": "picName" },
+      { "type": "uint256", "name": "target" },
+      { "type": "string", "name": "desc" },
+      { "type": "address", "name": "pic" },
+      { "type": "uint8", "name": "status" },
+      { "type": "uint256", "name": "allocated" },
+      { "type": "string", "name": "category" },
+      { "type": "string", "name": "programLink" },
+      { "type": "string", "name": "photoUrl" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "sendFund",
+    "constant": false,
+    "payable": false,
+    "inputs": [{ "type": "uint256", "name": "amount" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "totalAllocated",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [],
+    "outputs": [{ "type": "uint256", "name": "" }]
+  },
+  {
+    "type": "function",
+    "name": "totalManagedFund",
+    "constant": true,
+    "stateMutability": "view",
+    "payable": false,
+    "inputs": [],
+    "outputs": [{ "type": "uint256", "name": "" }]
+  },
+  {
+    "type": "function",
+    "name": "updateProgram",
+    "constant": false,
+    "payable": false,
+    "inputs": [
+      { "type": "uint256", "name": "_programId" },
+      {
+        "type": "tuple",
+        "name": "input",
+        "components": [
+          { "type": "string", "name": "name" },
+          { "type": "string", "name": "picName" },
+          { "type": "uint256", "name": "target" },
+          { "type": "string", "name": "desc" },
+          { "type": "address", "name": "pic" },
+          { "type": "string", "name": "category" },
+          { "type": "string", "name": "programLink" },
+          { "type": "string", "name": "photoUrl" }
+        ]
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "withdrawFund",
+    "constant": false,
+    "payable": false,
+    "inputs": [
+      { "type": "uint256", "name": "_programId" },
+      { "type": "string", "name": "_history" },
+      { "type": "uint256", "name": "_amount" }
+    ],
+    "outputs": []
+  }
+]
