@@ -8,36 +8,21 @@ import { FaGlobeAsia } from "react-icons/fa";
 import { LuClock3 } from "react-icons/lu";
 import { ProgramType } from "@/constants/ProgramData.constant";
 import { useContract } from "../hooks/useContract";
+import HistoryModal from './HistoryModal';
+import WithdrawalModal from './WithdrawalModal';
 
 interface CardModalProps {
   onCardClose: () => void;
   onContributeCard: () => void;
-  onHistoryOpen: () => void;
-  isHistoryOpen: boolean;
-  isCardOpen: boolean;
   program: ProgramType | null;
 }
 
 // User roles
 type UserRole = 'admin' | 'pic' | 'user';
 
-// Mock history data - replace with blockchain data later
-const mockHistory = [
-  { date: '2025-01-15', amount: 250000, desc: 'Initial donation for program launch', hash: '0x1234...5678' },
-  { date: '2025-01-12', amount: 150000, desc: 'Community support contribution', hash: '0x2345...6789' },
-  { date: '2025-01-10', amount: 300000, desc: 'Corporate sponsorship fund', hash: '0x3456...7890' },
-  { date: '2025-01-08', amount: 200000, desc: 'Individual donor contribution', hash: '0x4567...8901' },
-  { date: '2025-01-06', amount: 180000, desc: 'Fundraising event proceeds', hash: '0x5678...9012' },
-  { date: '2025-01-04', amount: 220000, desc: 'Grant allocation fund', hash: '0x6789...0123' },
-  { date: '2025-01-02', amount: 160000, desc: 'Matching donation program', hash: '0x7890...1234' },
-];
-
 export default function CardModal({ 
   onCardClose, 
   onContributeCard, 
-  onHistoryOpen, 
-  isHistoryOpen, 
-  isCardOpen, 
   program 
 }: CardModalProps) {
   const [imageError, setImageError] = useState(false);
@@ -46,16 +31,24 @@ export default function CardModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
+  
+  // Modal states
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
 
   const { 
     getCurrentAddress, 
     checkConnection, 
-    getContract 
+    getContract,
+    getRemainingFundForAllocation,
+    allocateFund,
+    deactivateProgram
   } = useContract();
 
   useEffect(() => {
-    if (isHistoryOpen || isCardOpen) {
+    if (program) {
       document.body.style.overflow = 'hidden';
+      determineUserRole();
     } else {
       document.body.style.overflow = 'auto';
     }
@@ -63,12 +56,6 @@ export default function CardModal({
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isHistoryOpen, isCardOpen]);
-
-  useEffect(() => {
-    if (program) {
-      determineUserRole();
-    }
   }, [program]);
 
   // Determine user role based on wallet address
@@ -108,7 +95,7 @@ export default function CardModal({
     }
   };
 
-  // Admin actions
+  // Enhanced Admin actions with fund checking
   const handleDeactivateProgram = async () => {
     if (!program) return;
 
@@ -117,13 +104,10 @@ export default function CardModal({
       setActionError('');
       setActionSuccess('');
 
-      const contract = await getContract('FUNDRAISERS');
-      const tx = await contract.deactivateProgram(program.id);
+      console.log('🔍 Deactivating program:', program.id);
+      const txHash = await deactivateProgram(Number(program.id));
       
-      console.log('⏳ Waiting for deactivation confirmation...');
-      await tx.wait();
-      
-      setActionSuccess('Program deactivated successfully!');
+      setActionSuccess(`Program deactivated successfully! Tx: ${txHash.slice(0, 10)}...`);
       console.log('✅ Program deactivated successfully');
       
       // Refresh page after 2 seconds
@@ -144,6 +128,7 @@ export default function CardModal({
     }
   };
 
+  // Enhanced Allocate Fund with fund checking
   const handleAllocateFund = async () => {
     if (!program) return;
 
@@ -152,13 +137,32 @@ export default function CardModal({
       setActionError('');
       setActionSuccess('');
 
-      const contract = await getContract('FUNDRAISERS');
-      const tx = await contract.allocateFund(program.id);
+      console.log('🔍 Checking remaining fund before allocation...');
+
+      // Check remaining fund sebelum allocate
+      const remainingFund = await getRemainingFundForAllocation();
+      const remainingAmount = parseFloat(remainingFund);
+      const programTarget = parseFloat(program.target);
+
+      console.log('💰 Fund check:', {
+        remainingAmount,
+        programTarget,
+        sufficient: remainingAmount >= programTarget
+      });
+
+      if (remainingAmount < programTarget) {
+        setActionError(
+          `Insufficient fund for allocation. Available: ${remainingAmount.toLocaleString('id-ID')} IDRX, Required: ${programTarget.toLocaleString('id-ID')} IDRX`
+        );
+        return;
+      }
+
+      console.log('✅ Sufficient fund available, proceeding with allocation...');
+      console.log('🔍 Allocating fund to program:', program.id);
       
-      console.log('⏳ Waiting for allocation confirmation...');
-      await tx.wait();
+      const txHash = await allocateFund(Number(program.id));
       
-      setActionSuccess('Fund allocated successfully!');
+      setActionSuccess(`Fund allocated successfully! Tx: ${txHash.slice(0, 10)}...`);
       console.log('✅ Fund allocated successfully');
       
       // Refresh page after 2 seconds
@@ -171,6 +175,8 @@ export default function CardModal({
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('user rejected')) {
         setActionError('Transaction was rejected by user');
+      } else if (errorMessage.includes('Insufficient fund')) {
+        setActionError(errorMessage);
       } else {
         setActionError(`Failed to allocate fund: ${errorMessage}`);
       }
@@ -179,11 +185,14 @@ export default function CardModal({
     }
   };
 
-  // PIC actions (withdraw would need additional UI for amount and description)
+  // Open withdrawal modal
   const handleWithdraw = () => {
-    // This would typically open a withdraw modal
-    // For now, just show a message
-    setActionError('Withdraw functionality requires additional parameters. This would open a withdraw modal.');
+    setIsWithdrawalModalOpen(true);
+  };
+
+  // Open history modal
+  const handleHistoryOpen = () => {
+    setIsHistoryModalOpen(true);
   };
 
   // Calculate progress percentage
@@ -262,19 +271,16 @@ export default function CardModal({
       );
     }
 
-    // History (available for all)
+    // History (available for all) - Updated to use separate modal
     buttons.push(
-      <Buttons
+      <button
         key="history"
-        className="text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1"
-        onClick={onHistoryOpen}
-        type="button"
+        onClick={handleHistoryOpen}
+        className="flex items-center justify-center gap-2 text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1"
       >
-        <div className="flex items-center justify-center gap-2">
-          <Calendar className="w-4 h-4" />
-          History
-        </div>
-      </Buttons>
+        <Calendar className="w-4 h-4" />
+        History
+      </button>
     );
 
     // Role-specific buttons
@@ -371,87 +377,13 @@ export default function CardModal({
   const statusBadge = getStatusBadge(program?.status);
 
   if (!program) {
-    return (
-      <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4">
-        <div className="bg-black text-white p-8 rounded-2xl">
-          <p>No program data available</p>
-          <button onClick={onCardClose} className="mt-4 text-cyan-400 hover:text-cyan-300">
-            Close
-          </button>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4 sm:p-8 md:p-12">
-      {isHistoryOpen ? (
-        // History Modal
-        <div
-          className="bg-black text-white w-full max-w-[95%] sm:max-w-4xl rounded-2xl mt-20 relative shadow-lg overflow-hidden"
-          style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
-        >
-          <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-700">
-            <div>
-              <h3 className="text-lg sm:text-xl font-thin">Transaction History</h3>
-              <p className="text-sm text-neutral-400 mt-1">{program.name}</p>
-            </div>
-            <button 
-              onClick={onCardClose} 
-              className="text-neutral-400 hover:text-white cursor-pointer p-2 hover:bg-neutral-900/90 bg-neutral-800/90 rounded-full transition-colors"
-            >
-              <X className="w-5 md:w-6 h-5 md:h-6" />
-            </button>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto p-4 sm:p-6">
-            {mockHistory.length > 0 ? (
-              <div className="space-y-3">
-                {mockHistory.map((transaction, index) => (
-                  <div key={index} className="bg-neutral-900 rounded-lg p-4 border border-neutral-800">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Calendar className="w-4 h-4 text-cyan-400" />
-                          <span className="text-sm font-medium">{formatDate(transaction.date)}</span>
-                        </div>
-                        <p className="text-sm text-neutral-300 mb-2">{transaction.desc}</p>
-                        <p className="text-xs text-neutral-500 font-mono">
-                          Tx: {transaction.hash}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-green-400">
-                          <DollarSign className="w-4 h-4" />
-                          <span className="font-medium">{formatCurrency(transaction.amount)} IDRX</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-neutral-400">No transaction history available</p>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 sm:p-6 border-t border-neutral-700 flex justify-between items-center">
-            <div className="text-sm text-neutral-400">
-              Total: {mockHistory.length} transactions
-            </div>
-            <Buttons
-              className="text-white font-light border-[2px] border-cyan-500 py-2 px-6 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer transition-all duration-300"
-              onClick={onHistoryOpen}
-              type="button"
-            >
-              Back to Program
-            </Buttons>
-          </div>
-        </div>
-      ) : (
-        // Main Program Modal
+    <>
+      {/* Main Program Modal */}
+      <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4 sm:p-8 md:p-12">
         <div
           className="bg-black text-white w-full max-w-[95%] sm:max-w-4xl rounded-2xl mt-16 relative shadow-lg overflow-hidden"
           style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
@@ -506,16 +438,28 @@ export default function CardModal({
 
           {/* Content */}
           <section className="px-6 sm:px-8 md:px-12 py-6 sm:py-8">
-            {/* Action Messages */}
+            {/* Enhanced Action Messages */}
             {actionError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                <p className="text-red-400 text-sm">{actionError}</p>
+              <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="text-red-400 mt-0.5">⚠️</div>
+                  <div>
+                    <p className="text-red-400 text-sm font-medium">Error</p>
+                    <p className="text-red-300 text-sm mt-1">{actionError}</p>
+                  </div>
+                </div>
               </div>
             )}
 
             {actionSuccess && (
-              <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <p className="text-green-400 text-sm">{actionSuccess}</p>
+              <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="text-green-400 mt-0.5">✅</div>
+                  <div>
+                    <p className="text-green-400 text-sm font-medium">Success</p>
+                    <p className="text-green-300 text-sm mt-1">{actionSuccess}</p>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -603,7 +547,20 @@ export default function CardModal({
             </div>
           </section>
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Separate Modal Components */}
+      <HistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        program={program}
+      />
+
+      <WithdrawalModal
+        isOpen={isWithdrawalModalOpen}
+        onClose={() => setIsWithdrawalModalOpen(false)}
+        program={program}
+      />
+    </>
   );
 }

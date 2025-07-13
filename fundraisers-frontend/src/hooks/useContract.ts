@@ -8,23 +8,73 @@ import {
   Program,
 } from "../../contracts/contractConfig";
 
+// Types untuk history dan response
+interface ProgramHistory {
+  timestamp: bigint;
+  history: string;
+  amount: bigint;
+}
+
+interface FundAllocationStatus {
+  totalManaged: string;
+  totalAllocated: string;
+  remainingForAllocation: string;
+  contractBalance: string;
+}
+
 interface UseContractReturn {
+  // IDRX Token Functions
   getIDRXBalance: (userAddress?: string) => Promise<string>;
-  getAllPrograms: () => Promise<Program[]>;
-  sendDonation: (amount: number | string) => Promise<string>;
+  getIDRXTotalSupply: () => Promise<string>;
+  getIDRXAllowance: (owner: string, spender: string) => Promise<string>;
+  approveIDRX: (spender: string, amount: string) => Promise<string>;
+  transferIDRX: (to: string, amount: string) => Promise<string>;
+  mintIDRX: (to: string, amount: string) => Promise<string>;
+  
+  // Fundraisers Contract Functions - Admin Only
   createProgram: (programData: ProgramData) => Promise<string>;
-  getContract: (contractName: ContractName) => Promise<Contract>;
+  updateProgram: (programId: number, programData: ProgramData) => Promise<string>;
+  deactivateProgram: (programId: number) => Promise<string>;
+  allocateFund: (programId: number) => Promise<string>;
+  markProgramAsFinished: (programId: number) => Promise<string>;
+  
+  // Fundraisers Contract Functions - PIC Only
+  withdrawFund: (programId: number, history: string, amount: string) => Promise<string>;
+  
+  // Fundraisers Contract Functions - Public
+  sendDonation: (amount: number | string) => Promise<string>;
+  getAllPrograms: () => Promise<Program[]>;
+  getProgramById: (programId: number) => Promise<Program | null>;
+  getProgramHistory: (programId: number) => Promise<ProgramHistory[]>;
   getTotalManagedFund: () => Promise<string>;
   getTotalAllocated: () => Promise<string>;
   getTotalProgramsCreated: () => Promise<number>;
+  getContractOwner: () => Promise<string>;
+  getIDRXTokenAddress: () => Promise<string>;
+  
+  // New Fund Management Functions
+  getRemainingFundForAllocation: () => Promise<string>;
+  getContractIDRXBalance: () => Promise<string>;
+  getFundAllocationStatus: () => Promise<FundAllocationStatus>;
+  
+  // Utility Functions
+  getContract: (contractName: ContractName) => Promise<Contract>;
   isWalletConnected: () => boolean;
   getCurrentAddress: () => Promise<string | null>;
   checkConnection: () => Promise<boolean>;
+  switchToLiskSepolia: () => Promise<boolean>;
+  
   // Read-only functions (tidak perlu wallet connection)
   getTotalManagedFundPublic: () => Promise<string>;
   getTotalAllocatedPublic: () => Promise<string>;
   getTotalProgramsCreatedPublic: () => Promise<number>;
   getAllProgramsPublic: () => Promise<Program[]>;
+  getProgramByIdPublic: (programId: number) => Promise<Program | null>;
+  getProgramHistoryPublic: (programId: number) => Promise<ProgramHistory[]>;
+  getContractOwnerPublic: () => Promise<string>;
+  getIDRXTokenAddressPublic: () => Promise<string>;
+  getIDRXBalancePublic: (userAddress: string) => Promise<string>;
+  getIDRXTotalSupplyPublic: () => Promise<string>;
 }
 
 export const useContract = (): UseContractReturn => {
@@ -75,6 +125,47 @@ export const useContract = (): UseContractReturn => {
     }
   };
 
+  const switchToLiskSepolia = async (): Promise<boolean> => {
+    try {
+      if (!window.ethereum) {
+        throw new Error("No wallet provider found");
+      }
+
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${LISK_SEPOLIA_CHAIN_ID.toString(16)}` }],
+      });
+
+      return true;
+    } catch (error: any) {
+      if (error.code === 4902) {
+        try {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: `0x${LISK_SEPOLIA_CHAIN_ID.toString(16)}`,
+              chainName: 'Lisk Sepolia',
+              nativeCurrency: {
+                name: 'Ethereum',
+                symbol: 'ETH',
+                decimals: 18
+              },
+              rpcUrls: [RPC_URL],
+              blockExplorerUrls: ['https://sepolia-blockscout.lisk.com']
+            }]
+          });
+          return true;
+        } catch (addError) {
+          console.error("Error adding network:", addError);
+          return false;
+        }
+      } else {
+        console.error("Error switching network:", error);
+        return false;
+      }
+    }
+  };
+
   const getContract = async (contractName: ContractName): Promise<Contract> => {
     console.log("🔧 Getting contract:", contractName);
 
@@ -105,9 +196,12 @@ export const useContract = (): UseContractReturn => {
       console.log("🌐 Current network:", chainId);
 
       if (chainId !== LISK_SEPOLIA_CHAIN_ID) {
-        throw new Error(
-          `Wrong network. Please switch to Lisk Sepolia (Chain ID: 4202). Current: ${chainId}`
-        );
+        const switched = await switchToLiskSepolia();
+        if (!switched) {
+          throw new Error(
+            `Wrong network. Please switch to Lisk Sepolia (Chain ID: 4202). Current: ${chainId}`
+          );
+        }
       }
 
       const abi = contractName === "IDRX" ? IDRX_ABI : FUNDRAISERS_ABI;
@@ -135,91 +229,16 @@ export const useContract = (): UseContractReturn => {
     }
   };
 
-  // PUBLIC READ-ONLY FUNCTIONS (tidak perlu wallet connection)
-  const getTotalManagedFundPublic = async (): Promise<string> => {
-    try {
-      console.log("🔍 Getting total managed fund (public)...");
+  // ========================================
+  // IDRX TOKEN FUNCTIONS - SEMUA MENGGUNAKAN 2 DECIMALS
+  // ========================================
 
-      const contract = getReadOnlyContract("FUNDRAISERS");
-
-      if (typeof contract.totalManagedFund !== "function") {
-        console.warn("⚠️ totalManagedFund function not found in contract");
-        return "0";
-      }
-
-      const total: any = await contract.totalManagedFund();
-      console.log("✅ Raw total managed fund (public):", String(total));
-
-      const formatted = ethers.formatUnits(total, 2);
-      console.log("✅ Formatted total managed fund (public):", formatted);
-
-      return formatted;
-    } catch (error: any) {
-      console.error("❌ Error getting total managed fund (public):", error);
-      return "0";
-    }
-  };
-
-  const getTotalAllocatedPublic = async (): Promise<string> => {
-    try {
-      console.log("🔍 Getting total allocated (public)...");
-
-      const contract = getReadOnlyContract("FUNDRAISERS");
-
-      if (typeof contract.totalAllocated !== "function") {
-        console.warn("⚠️ totalAllocated function not found in contract");
-        return "0";
-      }
-
-      const total: any = await contract.totalAllocated();
-      console.log("✅ Raw total allocated (public):", String(total));
-
-      const formatted = ethers.formatUnits(total, 2);
-      console.log("✅ Formatted total allocated (public):", formatted);
-
-      return formatted;
-    } catch (error: any) {
-      console.error("❌ Error getting total allocated (public):", error);
-      return "0";
-    }
-  };
-
-  const getAllProgramsPublic = async (): Promise<Program[]> => {
-    try {
-      console.log("🔍 Getting all programs (public)...");
-
-      const contract = getReadOnlyContract("FUNDRAISERS");
-      const programs = await contract.getAllProgram();
-
-      console.log("✅ Programs loaded (public):", programs.length);
-      return programs;
-    } catch (error: any) {
-      console.error("❌ Error getting programs (public):", error);
-      return [];
-    }
-  };
-
-  const getTotalProgramsCreatedPublic = async (): Promise<number> => {
-    try {
-      console.log("🔍 Getting total programs created (public)...");
-
-      const programs = await getAllProgramsPublic();
-      const count = programs.length;
-      console.log("✅ Total programs created (public):", count);
-      return count;
-    } catch (error: any) {
-      console.error("❌ Error getting total programs created (public):", error);
-      return 0;
-    }
-  };
-
-  // WALLET-REQUIRED FUNCTIONS (perlu wallet connection)
   const getIDRXBalance = async (userAddress?: string): Promise<string> => {
     try {
       console.log("🔍 Getting IDRX balance...");
 
       const isConnected = await checkConnection();
-      if (!isConnected) {
+      if (!isConnected && !userAddress) {
         console.warn("⚠️ Wallet not connected, returning 0");
         return "0";
       }
@@ -238,11 +257,11 @@ export const useContract = (): UseContractReturn => {
         throw new Error("Invalid user address");
       }
 
-      const contract = await getContract("IDRX");
+      const contract = userAddress ? getReadOnlyContract("IDRX") : await getContract("IDRX");
       const balance = await contract.balanceOf(targetAddress);
 
       console.log("✅ Raw balance:", balance.toString());
-      const formatted = ethers.formatUnits(balance, 2);
+      const formatted = ethers.formatUnits(balance, 2); // TETAP 2 DECIMALS
       console.log("✅ Formatted balance:", formatted);
 
       return formatted;
@@ -252,24 +271,294 @@ export const useContract = (): UseContractReturn => {
     }
   };
 
-  const getAllPrograms = async (): Promise<Program[]> => {
+  const getIDRXBalancePublic = async (userAddress: string): Promise<string> => {
     try {
-      console.log("🔍 Getting all programs...");
+      if (!ethers.isAddress(userAddress)) {
+        throw new Error("Invalid user address");
+      }
+
+      const contract = getReadOnlyContract("IDRX");
+      const balance = await contract.balanceOf(userAddress);
+      return ethers.formatUnits(balance, 2); // UBAH DARI 18 KE 2
+    } catch (error: any) {
+      console.error("❌ Error getting IDRX balance (public):", error);
+      return "0";
+    }
+  };
+
+  const getIDRXTotalSupply = async (): Promise<string> => {
+    try {
+      const contract = await getContract("IDRX");
+      const totalSupply = await contract.totalSupply();
+      return ethers.formatUnits(totalSupply, 2); // UBAH DARI 18 KE 2
+    } catch (error: any) {
+      console.error("❌ Error getting IDRX total supply:", error);
+      return "0";
+    }
+  };
+
+  const getIDRXTotalSupplyPublic = async (): Promise<string> => {
+    try {
+      const contract = getReadOnlyContract("IDRX");
+      const totalSupply = await contract.totalSupply();
+      return ethers.formatUnits(totalSupply, 2); // UBAH DARI 18 KE 2
+    } catch (error: any) {
+      console.error("❌ Error getting IDRX total supply (public):", error);
+      return "0";
+    }
+  };
+
+  const getIDRXAllowance = async (owner: string, spender: string): Promise<string> => {
+    try {
+      if (!ethers.isAddress(owner) || !ethers.isAddress(spender)) {
+        throw new Error("Invalid addresses");
+      }
+
+      const contract = await getContract("IDRX");
+      const allowance = await contract.allowance(owner, spender);
+      return ethers.formatUnits(allowance, 2); // UBAH DARI 18 KE 2
+    } catch (error: any) {
+      console.error("❌ Error getting IDRX allowance:", error);
+      return "0";
+    }
+  };
+
+  const approveIDRX = async (spender: string, amount: string): Promise<string> => {
+    try {
+      if (!ethers.isAddress(spender)) {
+        throw new Error("Invalid spender address");
+      }
+
+      const contract = await getContract("IDRX");
+      const amountInWei = ethers.parseUnits(amount, 2); // UBAH DARI 18 KE 2
+      
+      const tx = await contract.approve(spender, amountInWei);
+      console.log("⏳ Waiting for approval confirmation...");
+      await tx.wait();
+      
+      console.log("✅ IDRX approval successful");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error approving IDRX:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`IDRX approval failed: ${error.message}`);
+    }
+  };
+
+  const transferIDRX = async (to: string, amount: string): Promise<string> => {
+    try {
+      if (!ethers.isAddress(to)) {
+        throw new Error("Invalid recipient address");
+      }
+
+      const contract = await getContract("IDRX");
+      const amountInWei = ethers.parseUnits(amount, 2); // UBAH DARI 18 KE 2
+      
+      const tx = await contract.transfer(to, amountInWei);
+      console.log("⏳ Waiting for transfer confirmation...");
+      await tx.wait();
+      
+      console.log("✅ IDRX transfer successful");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error transferring IDRX:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`IDRX transfer failed: ${error.message}`);
+    }
+  };
+
+  const mintIDRX = async (to: string, amount: string): Promise<string> => {
+    try {
+      if (!ethers.isAddress(to)) {
+        throw new Error("Invalid recipient address");
+      }
+
+      const contract = await getContract("IDRX");
+      const amountInWei = ethers.parseUnits(amount, 2); // UBAH DARI 18 KE 2
+      
+      const tx = await contract.mint(to, amountInWei);
+      console.log("⏳ Waiting for mint confirmation...");
+      await tx.wait();
+      
+      console.log("✅ IDRX mint successful");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error minting IDRX:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`IDRX mint failed: ${error.message}`);
+    }
+  };
+
+  // ========================================
+  // FUNDRAISERS CONTRACT FUNCTIONS - SEMUA MENGGUNAKAN 2 DECIMALS
+  // ========================================
+
+  const createProgram = async (programData: ProgramData): Promise<string> => {
+    try {
+      console.log("🔍 Creating program:", programData.name);
 
       const isConnected = await checkConnection();
       if (!isConnected) {
-        console.warn("⚠️ Wallet not connected, using public method");
-        return await getAllProgramsPublic();
+        throw new Error("Please connect your wallet first");
       }
 
-      const contract = await getContract("FUNDRAISERS");
-      const programs = await contract.getAllProgram();
+      const requiredFields = ["name", "desc", "pic", "picName", "category"];
+      const missingFields = requiredFields.filter((field) => {
+        const value = programData[field as keyof ProgramData];
+        return !value || (typeof value === "string" && value.trim() === "");
+      });
 
-      console.log("✅ Programs loaded:", programs.length);
-      return programs;
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
+      }
+
+      const targetAmount = ethers.parseUnits(programData.target.toString(), 2); // TETAP 2 DECIMALS
+
+      const programInput = {
+        name: programData.name,
+        picName: programData.picName,
+        target: targetAmount,
+        desc: programData.desc,
+        pic: programData.pic,
+        category: programData.category,
+        programLink: programData.programLink || "",
+        photoUrl: programData.photoUrl || "",
+      };
+
+      const contract = await getContract("FUNDRAISERS");
+      const tx = await contract.createProgram(programInput);
+      console.log("⏳ Waiting for program creation confirmation...");
+      await tx.wait();
+
+      console.log("✅ Program created successfully");
+      return tx.hash;
     } catch (error: any) {
-      console.error("❌ Error getting programs, trying public method:", error);
-      return await getAllProgramsPublic();
+      console.error("❌ Error creating program:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Program creation failed: ${error.message}`);
+    }
+  };
+
+  const updateProgram = async (programId: number, programData: ProgramData): Promise<string> => {
+    try {
+      console.log("🔍 Updating program:", programId);
+
+      const targetAmount = ethers.parseUnits(programData.target.toString(), 2); // UBAH DARI 18 KE 2
+
+      const programInput = {
+        name: programData.name,
+        picName: programData.picName,
+        target: targetAmount,
+        desc: programData.desc,
+        pic: programData.pic,
+        category: programData.category,
+        programLink: programData.programLink || "",
+        photoUrl: programData.photoUrl || "",
+      };
+
+      const contract = await getContract("FUNDRAISERS");
+      const tx = await contract.updateProgram(programId, programInput);
+      console.log("⏳ Waiting for program update confirmation...");
+      await tx.wait();
+
+      console.log("✅ Program updated successfully");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error updating program:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Program update failed: ${error.message}`);
+    }
+  };
+
+  const deactivateProgram = async (programId: number): Promise<string> => {
+    try {
+      console.log("🔍 Deactivating program:", programId);
+
+      const contract = await getContract("FUNDRAISERS");
+      const tx = await contract.deactivateProgram(programId);
+      console.log("⏳ Waiting for deactivation confirmation...");
+      await tx.wait();
+
+      console.log("✅ Program deactivated successfully");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error deactivating program:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Program deactivation failed: ${error.message}`);
+    }
+  };
+
+  const allocateFund = async (programId: number): Promise<string> => {
+    try {
+      console.log("🔍 Allocating fund to program:", programId);
+
+      const contract = await getContract("FUNDRAISERS");
+      const tx = await contract.allocateFund(programId);
+      console.log("⏳ Waiting for fund allocation confirmation...");
+      await tx.wait();
+
+      console.log("✅ Fund allocated successfully");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error allocating fund:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Fund allocation failed: ${error.message}`);
+    }
+  };
+
+  const markProgramAsFinished = async (programId: number): Promise<string> => {
+    try {
+      console.log("🔍 Marking program as finished:", programId);
+
+      const contract = await getContract("FUNDRAISERS");
+      const tx = await contract.markProgramAsFinished(programId);
+      console.log("⏳ Waiting for confirmation...");
+      await tx.wait();
+
+      console.log("✅ Program marked as finished successfully");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error marking program as finished:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Mark as finished failed: ${error.message}`);
+    }
+  };
+
+  const withdrawFund = async (programId: number, history: string, amount: string): Promise<string> => {
+    try {
+      console.log("🔍 Withdrawing fund from program:", programId);
+
+      const contract = await getContract("FUNDRAISERS");
+      const amountInWei = ethers.parseUnits(amount, 2); // UBAH DARI 18 KE 2
+      
+      const tx = await contract.withdrawFund(programId, history, amountInWei);
+      console.log("⏳ Waiting for withdrawal confirmation...");
+      await tx.wait();
+
+      console.log("✅ Fund withdrawn successfully");
+      return tx.hash;
+    } catch (error: any) {
+      console.error("❌ Error withdrawing fund:", error);
+      if (error.message.includes("user rejected")) {
+        throw new Error("Transaction was rejected by user");
+      }
+      throw new Error(`Fund withdrawal failed: ${error.message}`);
     }
   };
 
@@ -294,7 +583,7 @@ export const useContract = (): UseContractReturn => {
       const idrxContract = await getContract("IDRX");
       const fundraisersContract = await getContract("FUNDRAISERS");
 
-      const amountInWei = ethers.parseUnits(amount.toString(), 2);
+      const amountInWei = ethers.parseUnits(amount.toString(), 2); // UBAH DARI 18 KE 2
       console.log("💰 Amount in wei:", amountInWei.toString());
 
       const balance = await getIDRXBalance(currentAddress);
@@ -329,93 +618,323 @@ export const useContract = (): UseContractReturn => {
     }
   };
 
-  const createProgram = async (programData: ProgramData): Promise<string> => {
+  // ========================================
+  // READ FUNCTIONS
+  // ========================================
+
+  const getAllPrograms = async (): Promise<Program[]> => {
     try {
-      console.log("🔍 Creating program:", programData.name);
+      console.log("🔍 Getting all programs...");
 
       const isConnected = await checkConnection();
       if (!isConnected) {
-        throw new Error("Please connect your wallet first");
+        console.warn("⚠️ Wallet not connected, using public method");
+        return await getAllProgramsPublic();
       }
-
-      const currentAddress = await getCurrentAddress();
-      if (!currentAddress) {
-        throw new Error("Wallet not connected");
-      }
-
-      const requiredFields = ["name", "desc", "pic", "picName", "category"];
-      const missingFields = requiredFields.filter((field) => {
-        const value = programData[field as keyof ProgramData];
-        return !value || (typeof value === "string" && value.trim() === "");
-      });
-
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
-      }
-
-      const targetAmount = ethers.parseUnits(programData.target.toString(), 2);
-
-      const programInput = {
-        name: programData.name,
-        picName: programData.picName,
-        target: targetAmount,
-        desc: programData.desc,
-        pic: programData.pic,
-        category: programData.category,
-        programLink: programData.programLink || "",
-        photoUrl: programData.photoUrl || "",
-      };
-
-      console.log("📝 Program data:", {
-        ...programInput,
-        target: targetAmount.toString(),
-      });
 
       const contract = await getContract("FUNDRAISERS");
-      const tx = await contract.createProgram(programInput);
-      console.log("⏳ Waiting for program creation confirmation...");
-      await tx.wait();
+      const programs = await contract.getAllProgram();
 
-      console.log("✅ Program created successfully");
-      return tx.hash;
+      console.log("✅ Programs loaded:", programs.length);
+      return programs;
     } catch (error: any) {
-      console.error("❌ Error creating program:", error);
-      if (error.message.includes("user rejected")) {
-        throw new Error("Transaction was rejected by user");
-      }
-      throw new Error(`Program creation failed: ${error.message}`);
+      console.error("❌ Error getting programs, trying public method:", error);
+      return await getAllProgramsPublic();
     }
   };
 
-  // Legacy functions for backward compatibility
+  const getAllProgramsPublic = async (): Promise<Program[]> => {
+    try {
+      console.log("🔍 Getting all programs (public)...");
+
+      const contract = getReadOnlyContract("FUNDRAISERS");
+      const programs = await contract.getAllProgram();
+
+      console.log("✅ Programs loaded (public):", programs.length);
+      return programs;
+    } catch (error: any) {
+      console.error("❌ Error getting programs (public):", error);
+      return [];
+    }
+  };
+
+  const getProgramById = async (programId: number): Promise<Program | null> => {
+    try {
+      const contract = await getContract("FUNDRAISERS");
+      const program = await contract.programs(programId);
+      return program;
+    } catch (error: any) {
+      console.error("❌ Error getting program by ID:", error);
+      return null;
+    }
+  };
+
+  const getProgramByIdPublic = async (programId: number): Promise<Program | null> => {
+    try {
+      const contract = getReadOnlyContract("FUNDRAISERS");
+      const program = await contract.programs(programId);
+      return program;
+    } catch (error: any) {
+      console.error("❌ Error getting program by ID (public):", error);
+      return null;
+    }
+  };
+
+  const getProgramHistory = async (programId: number): Promise<ProgramHistory[]> => {
+    try {
+      const contract = await getContract("FUNDRAISERS");
+      const history = await contract.getProgramHistory(programId);
+      return history;
+    } catch (error: any) {
+      console.error("❌ Error getting program history:", error);
+      return [];
+    }
+  };
+
+  const getProgramHistoryPublic = async (programId: number): Promise<ProgramHistory[]> => {
+    try {
+      const contract = getReadOnlyContract("FUNDRAISERS");
+      const history = await contract.getProgramHistory(programId);
+      return history;
+    } catch (error: any) {
+      console.error("❌ Error getting program history (public):", error);
+      return [];
+    }
+  };
+
   const getTotalManagedFund = async (): Promise<string> => {
     return await getTotalManagedFundPublic();
+  };
+
+  const getTotalManagedFundPublic = async (): Promise<string> => {
+    try {
+      console.log("🔍 Getting total managed fund (public)...");
+
+      const contract = getReadOnlyContract("FUNDRAISERS");
+
+      if (typeof contract.totalManagedFund !== "function") {
+        console.warn("⚠️ totalManagedFund function not found in contract");
+        return "0";
+      }
+
+      const total: any = await contract.totalManagedFund();
+      console.log("✅ Raw total managed fund (public):", String(total));
+
+      const formatted = ethers.formatUnits(total, 2); // UBAH DARI 18 KE 2
+      console.log("✅ Formatted total managed fund (public):", formatted);
+
+      return formatted;
+    } catch (error: any) {
+      console.error("❌ Error getting total managed fund (public):", error);
+      return "0";
+    }
   };
 
   const getTotalAllocated = async (): Promise<string> => {
     return await getTotalAllocatedPublic();
   };
 
+  const getTotalAllocatedPublic = async (): Promise<string> => {
+    try {
+      console.log("🔍 Getting total allocated (public)...");
+
+      const contract = getReadOnlyContract("FUNDRAISERS");
+
+      if (typeof contract.totalAllocated !== "function") {
+        console.warn("⚠️ totalAllocated function not found in contract");
+        return "0";
+      }
+
+      const total: any = await contract.totalAllocated();
+      console.log("✅ Raw total allocated (public):", String(total));
+
+      const formatted = ethers.formatUnits(total, 2); // UBAH DARI 18 KE 2
+      console.log("✅ Formatted total allocated (public):", formatted);
+
+      return formatted;
+    } catch (error: any) {
+      console.error("❌ Error getting total allocated (public):", error);
+      return "0";
+    }
+  };
+
   const getTotalProgramsCreated = async (): Promise<number> => {
     return await getTotalProgramsCreatedPublic();
   };
 
-  return {
-    getIDRXBalance,
-    getAllPrograms,
-    sendDonation,
-    createProgram,
-    getContract,
-    getTotalManagedFund,
-    getTotalAllocated,
-    getTotalProgramsCreated,
-    isWalletConnected,
-    getCurrentAddress,
-    checkConnection,
-    // Public read-only functions
-    getTotalManagedFundPublic,
-    getTotalAllocatedPublic,
-    getTotalProgramsCreatedPublic,
-    getAllProgramsPublic,
+  const getTotalProgramsCreatedPublic = async (): Promise<number> => {
+    try {
+      console.log("🔍 Getting total programs created (public)...");
+
+      const programs = await getAllProgramsPublic();
+      const count = programs.length;
+      console.log("✅ Total programs created (public):", count);
+      return count;
+    } catch (error: any) {
+      console.error("❌ Error getting total programs created (public):", error);
+      return 0;
+    }
   };
+
+  const getContractOwner = async (): Promise<string> => {
+    return await getContractOwnerPublic();
+  };
+
+  const getContractOwnerPublic = async (): Promise<string> => {
+    try {
+      const contract = getReadOnlyContract("FUNDRAISERS");
+      const owner = await contract.owner();
+      return owner;
+    } catch (error: any) {
+      console.error("❌ Error getting contract owner (public):", error);
+      return "";
+    }
+  };
+
+  const getIDRXTokenAddress = async (): Promise<string> => {
+    return await getIDRXTokenAddressPublic();
+  };
+
+  const getIDRXTokenAddressPublic = async (): Promise<string> => {
+    try {
+      const contract = getReadOnlyContract("FUNDRAISERS");
+      const tokenAddress = await contract.idrxToken();
+      return tokenAddress;
+    } catch (error: any) {
+      console.error("❌ Error getting IDRX token address (public):", error);
+      return "";
+    }
+  };
+
+// ========================================
+// NEW FUND MANAGEMENT FUNCTIONS - SEMUA MENGGUNAKAN 2 DECIMALS
+// ========================================
+
+const getRemainingFundForAllocation = async (): Promise<string> => {
+  try {
+    console.log("🔍 Getting remaining fund for allocation...");
+    
+    const [totalManaged, totalAllocated] = await Promise.all([
+      getTotalManagedFundPublic(),
+      getTotalAllocatedPublic()
+    ]);
+
+    const managedNum = parseFloat(totalManaged);
+    const allocatedNum = parseFloat(totalAllocated);
+    const remaining = Math.max(0, managedNum - allocatedNum);
+
+    console.log("✅ Remaining for allocation:", remaining);
+    return remaining.toString();
+  } catch (error: any) {
+    console.error("❌ Error getting remaining fund for allocation:", error);
+    return "0";
+  }
 };
+
+const getContractIDRXBalance = async (): Promise<string> => {
+  try {
+    console.log("🔍 Getting IDRX balance in Fundraisers contract...");
+    
+    const idrxContract = getReadOnlyContract("IDRX");
+    const fundraisersAddress = CONTRACT_ADDRESSES.FUNDRAISERS;
+    
+    const balance = await idrxContract.balanceOf(fundraisersAddress);
+    const formatted = ethers.formatUnits(balance, 2); // MENGGUNAKAN 2 DECIMALS
+    
+    console.log("✅ Contract IDRX balance:", formatted);
+    return formatted;
+  } catch (error: any) {
+    console.error("❌ Error getting contract IDRX balance:", error);
+    return "0";
+  }
+};
+
+const getFundAllocationStatus = async (): Promise<FundAllocationStatus> => {
+  try {
+    console.log("🔍 Getting comprehensive fund allocation status...");
+    
+    const [totalManaged, totalAllocated, contractBalance] = await Promise.all([
+      getTotalManagedFundPublic(),
+      getTotalAllocatedPublic(),
+      getContractIDRXBalance()
+    ]);
+
+    const managedNum = parseFloat(totalManaged);
+    const allocatedNum = parseFloat(totalAllocated);
+    const remainingForAllocation = Math.max(0, managedNum - allocatedNum).toString();
+
+    const status: FundAllocationStatus = {
+      totalManaged,
+      totalAllocated,
+      remainingForAllocation,
+      contractBalance
+    };
+
+    console.log("✅ Fund allocation status:", status);
+    return status;
+  } catch (error: any) {
+    console.error("❌ Error getting fund allocation status:", error);
+    return {
+      totalManaged: "0",
+      totalAllocated: "0",
+      remainingForAllocation: "0",
+      contractBalance: "0"
+    };
+  }
+};
+
+return {
+  // IDRX Token Functions
+  getIDRXBalance,
+  getIDRXTotalSupply,
+  getIDRXAllowance,
+  approveIDRX,
+  transferIDRX,
+  mintIDRX,
+  
+  // Fundraisers Contract Functions - Admin Only
+  createProgram,
+  updateProgram,
+  deactivateProgram,
+  allocateFund,
+  markProgramAsFinished,
+  
+  // Fundraisers Contract Functions - PIC Only
+  withdrawFund,
+  
+  // Fundraisers Contract Functions - Public
+  sendDonation,
+  getAllPrograms,
+  getProgramById,
+  getProgramHistory,
+  getTotalManagedFund,
+  getTotalAllocated,
+  getTotalProgramsCreated,
+  getContractOwner,
+  getIDRXTokenAddress,
+  
+  // New Fund Management Functions
+  getRemainingFundForAllocation,
+  getContractIDRXBalance,
+  getFundAllocationStatus,
+  
+  // Utility Functions
+  getContract,
+  isWalletConnected,
+  getCurrentAddress,
+  checkConnection,
+  switchToLiskSepolia,
+  
+  // Read-only functions (tidak perlu wallet connection)
+  getTotalManagedFundPublic,
+  getTotalAllocatedPublic,
+  getTotalProgramsCreatedPublic,
+  getAllProgramsPublic,
+  getProgramByIdPublic,
+  getProgramHistoryPublic,
+  getContractOwnerPublic,
+  getIDRXTokenAddressPublic,
+  getIDRXBalancePublic,
+  getIDRXTotalSupplyPublic
+  }
+}
