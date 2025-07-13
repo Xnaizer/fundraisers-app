@@ -8,7 +8,7 @@ import { useContract } from "../../hooks/useContract";
 
 export default function FundGoalSection() {
   const [totalManagedFund, setTotalManagedFund] = useState("0");
-  const [totalAllocated, setTotalAllocated] = useState("0");
+  // const [totalAllocated, setTotalAllocated] = useState("0");
   const [totalPrograms, setTotalPrograms] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +33,7 @@ export default function FundGoalSection() {
         ]);
 
         setTotalManagedFund(managedFund);
-        setTotalAllocated(allocatedFund);
+        // setTotalAllocated(allocatedFund);
         setTotalPrograms(programCount);
 
         console.log("✅ Public dashboard data loaded:", {

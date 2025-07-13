@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect } from "react";
-// import testImg from '../../public/HomeBanner1.jpg'
+import { useEffect, useState } from "react";
 import Buttons from "./Buttons"
-import { X } from 'lucide-react';
+import { X, ExternalLink, Calendar, User, Target, DollarSign, Settings, Ban, Send, Wallet } from 'lucide-react';
 import Image from "next/image";
 import { FaGlobeAsia } from "react-icons/fa";
 import { LuClock3 } from "react-icons/lu";
 import { ProgramType } from "@/constants/ProgramData.constant";
+import { useContract } from "../hooks/useContract";
 
 interface CardModalProps {
   onCardClose: () => void;
@@ -18,13 +18,43 @@ interface CardModalProps {
   program: ProgramType | null;
 }
 
-export default function CardModal({ onCardClose, onContributeCard, onHistoryOpen,isHistoryOpen, isCardOpen, program }: CardModalProps) {
-//   const handleBunny = () => {
-//     console.log("hi");
-//   };
+// User roles
+type UserRole = 'admin' | 'pic' | 'user';
+
+// Mock history data - replace with blockchain data later
+const mockHistory = [
+  { date: '2025-01-15', amount: 250000, desc: 'Initial donation for program launch', hash: '0x1234...5678' },
+  { date: '2025-01-12', amount: 150000, desc: 'Community support contribution', hash: '0x2345...6789' },
+  { date: '2025-01-10', amount: 300000, desc: 'Corporate sponsorship fund', hash: '0x3456...7890' },
+  { date: '2025-01-08', amount: 200000, desc: 'Individual donor contribution', hash: '0x4567...8901' },
+  { date: '2025-01-06', amount: 180000, desc: 'Fundraising event proceeds', hash: '0x5678...9012' },
+  { date: '2025-01-04', amount: 220000, desc: 'Grant allocation fund', hash: '0x6789...0123' },
+  { date: '2025-01-02', amount: 160000, desc: 'Matching donation program', hash: '0x7890...1234' },
+];
+
+export default function CardModal({ 
+  onCardClose, 
+  onContributeCard, 
+  onHistoryOpen, 
+  isHistoryOpen, 
+  isCardOpen, 
+  program 
+}: CardModalProps) {
+  const [imageError, setImageError] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('user');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [actionError, setActionError] = useState('');
+
+  const { 
+    getCurrentAddress, 
+    checkConnection, 
+    getContract 
+  } = useContract();
 
   useEffect(() => {
-    if (isHistoryOpen || isCardOpen ) {
+    if (isHistoryOpen || isCardOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
@@ -33,180 +63,546 @@ export default function CardModal({ onCardClose, onContributeCard, onHistoryOpen
     return () => {
       document.body.style.overflow = 'auto';
     };
-  }, [isHistoryOpen,isCardOpen]);
+  }, [isHistoryOpen, isCardOpen]);
+
+  useEffect(() => {
+    if (program) {
+      determineUserRole();
+    }
+  }, [program]);
+
+  // Determine user role based on wallet address
+  const determineUserRole = async () => {
+    try {
+      const isConnected = await checkConnection();
+      if (!isConnected) {
+        setUserRole('user');
+        return;
+      }
+
+      const currentAddress = await getCurrentAddress();
+      if (!currentAddress) {
+        setUserRole('user');
+        return;
+      }
+
+      // Check if user is admin (contract owner)
+      const contract = await getContract('FUNDRAISERS');
+      const owner = await contract.owner();
+      
+      if (currentAddress.toLowerCase() === owner.toLowerCase()) {
+        setUserRole('admin');
+        return;
+      }
+
+      // Check if user is PIC of this program
+      if (program && currentAddress.toLowerCase() === program.pic.toLowerCase()) {
+        setUserRole('pic');
+        return;
+      }
+
+      setUserRole('user');
+    } catch (error: unknown) {
+      console.error('Error determining user role:', error);
+      setUserRole('user');
+    }
+  };
+
+  // Admin actions
+  const handleDeactivateProgram = async () => {
+    if (!program) return;
+
+    try {
+      setIsProcessing(true);
+      setActionError('');
+      setActionSuccess('');
+
+      const contract = await getContract('FUNDRAISERS');
+      const tx = await contract.deactivateProgram(program.id);
+      
+      console.log('⏳ Waiting for deactivation confirmation...');
+      await tx.wait();
+      
+      setActionSuccess('Program deactivated successfully!');
+      console.log('✅ Program deactivated successfully');
+      
+      // Refresh page after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error: unknown) {
+      console.error('❌ Error deactivating program:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('user rejected')) {
+        setActionError('Transaction was rejected by user');
+      } else {
+        setActionError(`Failed to deactivate program: ${errorMessage}`);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAllocateFund = async () => {
+    if (!program) return;
+
+    try {
+      setIsProcessing(true);
+      setActionError('');
+      setActionSuccess('');
+
+      const contract = await getContract('FUNDRAISERS');
+      const tx = await contract.allocateFund(program.id);
+      
+      console.log('⏳ Waiting for allocation confirmation...');
+      await tx.wait();
+      
+      setActionSuccess('Fund allocated successfully!');
+      console.log('✅ Fund allocated successfully');
+      
+      // Refresh page after 2 seconds
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error: unknown) {
+      console.error('❌ Error allocating fund:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('user rejected')) {
+        setActionError('Transaction was rejected by user');
+      } else {
+        setActionError(`Failed to allocate fund: ${errorMessage}`);
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // PIC actions (withdraw would need additional UI for amount and description)
+  const handleWithdraw = () => {
+    // This would typically open a withdraw modal
+    // For now, just show a message
+    setActionError('Withdraw functionality requires additional parameters. This would open a withdraw modal.');
+  };
+
+  // Calculate progress percentage
+  const calculateProgress = (): number => {
+    if (!program?.target || !program?.allocated) return 0;
+    const target = parseFloat(program.target);
+    const allocated = parseFloat(program.allocated);
+    if (target === 0) return 0;
+    return Math.min((allocated / target) * 100, 100);
+  };
+
+  const progress = calculateProgress();
+
+  // Format currency
+  const formatCurrency = (amount: string | number): string => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(num)) return '0';
+    return num.toLocaleString('id-ID');
+  };
+
+  // Format date
+  const formatDate = (dateString: string): string => {
+    try {
+      return new Date(dateString).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  // Copy address to clipboard
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
+  // Get status badge
+  const getStatusBadge = (status?: number) => {
+    switch (status) {
+      case 0:
+        return { text: 'Inactive', color: 'bg-gray-500/20 text-gray-400 border-gray-500/50' };
+      case 1:
+        return { text: 'Active', color: 'bg-green-500/20 text-green-400 border-green-500/50' };
+      case 2:
+        return { text: 'Funded', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50' };
+      case 3:
+        return { text: 'Completed', color: 'bg-purple-500/20 text-purple-400 border-purple-500/50' };
+      default:
+        return { text: 'Unknown', color: 'bg-gray-500/20 text-gray-400 border-gray-500/50' };
+    }
+  };
+
+  // Get action buttons based on user role
+  const getActionButtons = (): JSX.Element[] => {
+    const buttons: JSX.Element[] = [];
+
+    // Program link (available for all if exists)
+    if (program?.programLink) {
+      buttons.push(
+        <button
+          key="program-link"
+          onClick={() => window.open(program.programLink, '_blank')}
+          className="flex items-center justify-center gap-2 text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Visit Program
+        </button>
+      );
+    }
+
+    // History (available for all)
+    buttons.push(
+      <Buttons
+        key="history"
+        className="text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1"
+        onClick={onHistoryOpen}
+        type="button"
+      >
+        <div className="flex items-center justify-center gap-2">
+          <Calendar className="w-4 h-4" />
+          History
+        </div>
+      </Buttons>
+    );
+
+    // Role-specific buttons
+    switch (userRole) {
+      case 'admin':
+        buttons.push(
+          <button
+            key="deactivate"
+            className={`text-white font-light border-[2px] border-red-500 py-3 px-4 rounded-xl hover:border-red-600 hover:bg-red-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1 ${
+              isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            onClick={handleDeactivateProgram}
+            type="button"
+            disabled={isProcessing}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Ban className="w-4 h-4" />
+              {isProcessing ? 'Processing...' : 'Deactivate'}
+            </div>
+          </button>
+        );
+
+        buttons.push(
+          <button
+            key="allocate"
+            className={`text-white font-light border-[2px] border-orange-500 py-3 px-4 rounded-xl hover:border-orange-600 hover:bg-orange-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1 ${
+              isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            onClick={handleAllocateFund}
+            type="button"
+            disabled={isProcessing}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Send className="w-4 h-4" />
+              {isProcessing ? 'Processing...' : 'Allocate Fund'}
+            </div>
+          </button>
+        );
+
+        buttons.push(
+          <Buttons
+            key="contribute"
+            className="text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1 bg-cyan-500/10"
+            onClick={onContributeCard}
+            type="button"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Target className="w-4 h-4" />
+              Contribute
+            </div>
+          </Buttons>
+        );
+        break;
+
+      case 'pic':
+        buttons.push(
+          <button
+            key="withdraw"
+            className={`text-white font-light border-[2px] border-green-500 py-3 px-4 rounded-xl hover:border-green-600 hover:bg-green-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1 ${
+              isProcessing ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            onClick={handleWithdraw}
+            type="button"
+            disabled={isProcessing}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Wallet className="w-4 h-4" />
+              Withdraw
+            </div>
+          </button>
+        );
+        break;
+
+      case 'user':
+        buttons.push(
+          <Buttons
+            key="contribute"
+            className="text-white font-light border-[2px] border-cyan-500 py-3 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-sm md:text-base transition-all duration-300 flex-1 bg-cyan-500/10"
+            onClick={onContributeCard}
+            type="button"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Target className="w-4 h-4" />
+              Contribute Now
+            </div>
+          </Buttons>
+        );
+        break;
+    }
+
+    return buttons;
+  };
+
+  const statusBadge = getStatusBadge(program?.status);
+
+  if (!program) {
+    return (
+      <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4">
+        <div className="bg-black text-white p-8 rounded-2xl">
+          <p>No program data available</p>
+          <button onClick={onCardClose} className="mt-4 text-cyan-400 hover:text-cyan-300">
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4 sm:p-8 md:p-12">
       {isHistoryOpen ? (
+        // History Modal
         <div
-          className="bg-black text-white w-full max-w-[95%] sm:max-w-3xl rounded-2xl mt-20 relative shadow-lg overflow-hidden"
+          className="bg-black text-white w-full max-w-[95%] sm:max-w-4xl rounded-2xl mt-20 relative shadow-lg overflow-hidden"
           style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
         >
-          
-          <div className="flex justify-between items-center p-4 border-b border-neutral-700">
-            <h3 className="text-lg font-thin">History Withdraw</h3>
-            <button onClick={onCardClose} className="text-neutral-400 hover:text-white cursor-pointer p-1 md:p-2 hover:bg-neutral-900/90  bg-neutral-800/90 rounded-full">
-              <X className="w-5 md:w-6  h-5 md:h-6"  />
+          <div className="flex justify-between items-center p-4 sm:p-6 border-b border-neutral-700">
+            <div>
+              <h3 className="text-lg sm:text-xl font-thin">Transaction History</h3>
+              <p className="text-sm text-neutral-400 mt-1">{program.name}</p>
+            </div>
+            <button 
+              onClick={onCardClose} 
+              className="text-neutral-400 hover:text-white cursor-pointer p-2 hover:bg-neutral-900/90 bg-neutral-800/90 rounded-full transition-colors"
+            >
+              <X className="w-5 md:w-6 h-5 md:h-6" />
             </button>
           </div>
 
-          <div className="max-h-96 overflow-y-auto p-4">
-            <table className="w-full table-auto text-sm md:text-base">
-              <thead>
-                <tr className="bg-neutral-800">
-                  <th className="px-3 py-2 text-left">Date</th>
-                  <th className="px-3 py-2 text-right">Amount (IDRX)</th>
-                  <th className="px-3 py-2 text-left">Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { date: '2025-05-10', amount: 250000, desc: 'Donasi awal' },
-                  { date: '2025-05-12', amount: 150000, desc: 'Tambahan donasi' },
-                  { date: '2025-05-14', amount: 300000, desc: 'Support campaign' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  { date: '2025-05-16', amount: 200000, desc: 'Donasi akhir' },
-                  
-                ].map((row, i) => (
-                  <tr
-                    key={i}
-                    className={i % 2 === 0 ? 'bg-neutral-900' : ''}
-                  >
-                    <td className="px-3 py-2 font-thin">{row.date}</td>
-                    <td className="px-3 py-2 text-right font-thin">{row.amount.toLocaleString()}</td>
-                    <td className="px-3 py-2 font-thin">{row.desc}</td>
-                  </tr>
+          <div className="max-h-96 overflow-y-auto p-4 sm:p-6">
+            {mockHistory.length > 0 ? (
+              <div className="space-y-3">
+                {mockHistory.map((transaction, index) => (
+                  <div key={index} className="bg-neutral-900 rounded-lg p-4 border border-neutral-800">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Calendar className="w-4 h-4 text-cyan-400" />
+                          <span className="text-sm font-medium">{formatDate(transaction.date)}</span>
+                        </div>
+                        <p className="text-sm text-neutral-300 mb-2">{transaction.desc}</p>
+                        <p className="text-xs text-neutral-500 font-mono">
+                          Tx: {transaction.hash}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-green-400">
+                          <DollarSign className="w-4 h-4" />
+                          <span className="font-medium">{formatCurrency(transaction.amount)} IDRX</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-neutral-400">No transaction history available</p>
+              </div>
+            )}
           </div>
 
-        
-          <div className="p-4 border-t border-neutral-700 flex justify-end">
+          <div className="p-4 sm:p-6 border-t border-neutral-700 flex justify-between items-center">
+            <div className="text-sm text-neutral-400">
+              Total: {mockHistory.length} transactions
+            </div>
             <Buttons
-              className="text-white font-light border-[2px] border-cyan-500 py-2 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer"
+              className="text-white font-light border-[2px] border-cyan-500 py-2 px-6 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer transition-all duration-300"
               onClick={onHistoryOpen}
               type="button"
             >
-              Back
+              Back to Program
             </Buttons>
           </div>
         </div>
       ) : (
-      <div
-        className="bg-black text-white w-full max-w-[95%] sm:max-w-3xl rounded-2xl mt-16 relative shadow-lg "
-        style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
-      >
-       
-        <div className="relative w-full h-32 md:h-64">
-          <button
-            onClick={onCardClose}
-            className="absolute top-4 right-4 text-neutral-400 hover:text-white transition cursor-pointer z-50  p-1 mb:p-2 hover:bg-neutral-900/90  bg-neutral-800/90 rounded-full"
-          >
-            <X className="w-5 md:w-6  h-5 md:h-6" />
-          </button>
+        // Main Program Modal
+        <div
+          className="bg-black text-white w-full max-w-[95%] sm:max-w-4xl rounded-2xl mt-16 relative shadow-lg overflow-hidden"
+          style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
+        >
+          {/* Image Header */}
+          <div className="relative w-full h-40 md:h-72">
+            <button
+              onClick={onCardClose}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white transition cursor-pointer z-50 p-2 hover:bg-neutral-900/90 bg-neutral-800/90 rounded-full"
+            >
+              <X className="w-5 md:w-6 h-5 md:h-6" />
+            </button>
 
-        {program && (
-          <Image
-            src={program.photoUrl}
-            alt={program.name}
-            layout="fill"
-            objectFit="cover"
-            className="rounded-t-xl"
-            priority
-          />
-        )
-        }
-        </div>
-
-      
-        <section className="px-5 sm:px-8 md:px-16 py-4 sm:py-8 md:py-12">
-
-        
-          <div className="mb-3 md:mb-6 mt-1 flex flex-col sm:flex-row sm:justify-between gap-4 sm:items-center">
-            <div className="flex flex-wrap gap-4 text-[0.75rem] md:text-base">
-              <p className="text-cyan-400 flex items-center gap-2">
-                <FaGlobeAsia /> <span >{program?.category}</span> 
-              </p>
-              <h4 className="flex items-center gap-2 font-extralight">
-                <LuClock3 />
-                <span>Created {new Date(program?.createdAt ?? "").toLocaleDateString('en',{
-                  day:'numeric',
-                  month:'long',
-                  year:'numeric',
-                })}</span>
-              </h4>
-            </div>
-
-          
-            <div className="flex flex-col items-start sm:items-end w-full sm:w-auto">
-              <div className="w-full sm:w-72 h-2 bg-neutral-700 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full" style={{ width: '50%' }}></div>
+            {/* Status Badge */}
+            <div className="absolute top-4 left-4 z-40">
+              <div className={`px-3 py-1 rounded-full text-xs border backdrop-blur-sm ${statusBadge.color} flex items-center gap-1`}>
+                <div className={`w-2 h-2 rounded-full ${statusBadge.color.includes('green') ? 'bg-green-400' : statusBadge.color.includes('blue') ? 'bg-blue-400' : statusBadge.color.includes('purple') ? 'bg-purple-400' : 'bg-gray-400'}`}></div>
+                {statusBadge.text}
               </div>
-              <p className="mt-2 font-thin text-[0.75rem] md:text-sm">1000000 / {program?.budget} IDRX</p>
             </div>
+
+            {/* User Role Badge */}
+            <div className="absolute top-4 right-20 z-40">
+              <div className={`px-3 py-1 rounded-full text-xs backdrop-blur-sm border ${
+                userRole === 'admin' ? 'bg-red-500/20 text-red-400 border-red-500/50' :
+                userRole === 'pic' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50' :
+                'bg-blue-500/20 text-blue-400 border-blue-500/50'
+              }`}>
+                <Settings className="w-3 h-3 inline mr-1" />
+                {userRole.toUpperCase()}
+              </div>
+            </div>
+
+            {!imageError ? (
+              <Image
+                src={program.photoUrl}
+                alt={program.name}
+                fill
+                className="object-cover rounded-t-2xl"
+                priority
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center rounded-t-2xl">
+                <div className="text-center text-neutral-600">
+                  <FaGlobeAsia className="text-6xl mx-auto mb-2" />
+                  <p>Image not available</p>
+                </div>
+              </div>
+            )}
           </div>
 
-    
-          <div className="mb-2 md:mb-4 flex flex-col sm:flex-row sm:items-end sm:gap-4">
-            <h2 className="text-sm md:text-lg lg:text-xl font-thin">
-              {program?.name}
-            </h2>
-            <h2 className="font-thin text-[0.75rem] md:text-sm text-neutral-300">
-              {program?.picName}
-            </h2>
-          </div>
+          {/* Content */}
+          <section className="px-6 sm:px-8 md:px-12 py-6 sm:py-8">
+            {/* Action Messages */}
+            {actionError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm">{actionError}</p>
+              </div>
+            )}
 
+            {actionSuccess && (
+              <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-green-400 text-sm">{actionSuccess}</p>
+              </div>
+            )}
 
-          <p className="font-thin text-neutral-300 text-[0.75rem] md:text-base mb-2 md:mb-5">
-            {program?.desc}
-          </p>
+            {/* Progress and Meta Info */}
+            <div className="mb-6 flex flex-col lg:flex-row lg:justify-between gap-4">
+              <div className="flex flex-wrap gap-4 text-sm">
+                <p className="text-cyan-400 flex items-center gap-2">
+                  <FaGlobeAsia className="w-4 h-4" />
+                  <span>{program.category}</span>
+                </p>
+                <p className="flex items-center gap-2 text-neutral-300">
+                  <LuClock3 className="w-4 h-4" />
+                  <span>Created {formatDate(program.createdAt)}</span>
+                </p>
+                <p className="flex items-center gap-2 text-neutral-300">
+                  <User className="w-4 h-4" />
+                  <span>by {program.picName}</span>
+                </p>
+              </div>
 
+              {/* Progress Bar */}
+              <div className="flex flex-col items-start lg:items-end w-full lg:w-80">
+                <div className="w-full h-3 bg-neutral-700 rounded-full overflow-hidden mb-2">
+                  <div 
+                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between w-full text-sm">
+                  <span className="text-cyan-400 font-medium">{progress.toFixed(1)}%</span>
+                  <span className="text-neutral-400">
+                    {formatCurrency(program.allocated)} / {formatCurrency(program.target)} IDRX
+                  </span>
+                </div>
+              </div>
+            </div>
 
-          <p className="font-thin text-neutral-300 text-xs sm:text-sm mb-3 sm:mb-10 break-words">
-            PIC Address : {program?.address}
-          </p>
+            {/* Title and Description */}
+            <div className="mb-6">
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-medium mb-2 text-white">
+                {program.name}
+              </h2>
+              <p className="text-neutral-300 text-sm md:text-base leading-relaxed">
+                {program.desc}
+              </p>
+            </div>
 
+            {/* PIC Address */}
+            <div className="mb-8 p-4 bg-neutral-900 rounded-lg border border-neutral-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-neutral-400 mb-1">PIC Address</p>
+                  <p className="font-mono text-sm text-white break-all">
+                    {program.pic}
+                  </p>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(program.pic)}
+                  className="ml-2 px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded text-xs transition-colors"
+                >
+                  {copySuccess ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
 
-          <div className="flex flex-row gap-3 md:gap-6 items-center justify-center pt-4">
-            <Buttons
-            
-            className="text-white font-light border-[2px] border-cyan-500 py-2 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-[0.7rem] md:text-md w-full md:w-56 text-center"
-            onClick={onContributeCard}
-            type="button"
-            >
-            Links
-            </Buttons>
+            {/* Role-based Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 items-stretch flex-wrap">
+              {getActionButtons()}
+            </div>
 
-            <Buttons
-            
-            className="text-white font-light border-[2px] border-cyan-500 py-2 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-[0.7rem] md:text-md w-full md:w-56 text-center"
-            onClick={onHistoryOpen}
-            type="button"
-            >
-            History
-            </Buttons>
-
-            <Buttons
-            
-            className="text-white font-light border-[2px] border-cyan-500 py-2 px-4 rounded-xl hover:border-cyan-600 hover:bg-cyan-500 cursor-pointer text-[0.7rem] md:text-md w-full md:w-56 text-center"
-            onClick={onContributeCard}
-            type="button"
-            >
-            Contribute
-            </Buttons>
-          </div>
-
-        </section>
-      </div>
+            {/* Additional Info */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+              <div className="p-4 bg-neutral-900 rounded-lg">
+                <p className="text-2xl font-bold text-cyan-400">{formatCurrency(program.target)}</p>
+                <p className="text-sm text-neutral-400">Target Amount</p>
+              </div>
+              <div className="p-4 bg-neutral-900 rounded-lg">
+                <p className="text-2xl font-bold text-green-400">{formatCurrency(program.allocated)}</p>
+                <p className="text-sm text-neutral-400">Raised Amount</p>
+              </div>
+              <div className="p-4 bg-neutral-900 rounded-lg">
+                <p className="text-2xl font-bold text-blue-400">{formatCurrency(parseFloat(program.target) - parseFloat(program.allocated))}</p>
+                <p className="text-sm text-neutral-400">Remaining</p>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );
