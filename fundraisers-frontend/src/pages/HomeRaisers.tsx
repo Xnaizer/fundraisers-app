@@ -11,23 +11,18 @@ import CardModal from "@/components/CardModal";
 import { ProgramType } from "@/constants/ProgramData.constant";
 import ScrollToTop from "@/components/ScrollToTop";
 
-
 export default function HomeRaisers() {
-
     const [contributeIsOpen, setContributeIsOpen] = useState<boolean>(false);
     const [cardIsOpen, setCardIsOpen] = useState<boolean>(false);
-    const [historyIsOpen, setHistoryIsOpen] = useState<boolean>(false);
-    const [selectedProgram, setSelectedProgram] = useState<ProgramType | null>(null)
+    const [selectedProgram, setSelectedProgram] = useState<ProgramType | null>(null);
     const [scrollTop, setScrollTop] = useState<boolean>(false);
 
-    const handleScroll = () => {
+    const handleScroll = (): void => {
         if(window.scrollY >= 300){
             setScrollTop(true);
         } else {
             setScrollTop(false);
         }
-
-
     }
 
     useEffect(() => {
@@ -35,38 +30,34 @@ export default function HomeRaisers() {
         return () => window.removeEventListener('scroll', handleScroll);
     },[]);
 
-
-    const handleOpenContributeCard = () => {
+    const handleOpenContributeCard = (): void => {
         setContributeIsOpen(true);
         setCardIsOpen(false);
-        setHistoryIsOpen(false);
     }
 
-    const handleCardClose = () => {
+    const handleCardClose = (): void => {
         setCardIsOpen(false);
-        setHistoryIsOpen(false);
     }
-
 
     return (
         <section className="relative min-h-screen">
-
-
-
             <div className="relative z-10">
                 <HomeSection onOpen={() => setContributeIsOpen(true)}/>  
 
-                {contributeIsOpen && <ContributeModal onCardClose={() => setContributeIsOpen(false)}
-                isContributeOpen={contributeIsOpen}    
-                /> }
+                {contributeIsOpen && (
+                    <ContributeModal 
+                        onCardClose={() => setContributeIsOpen(false)}
+                        isContributeOpen={contributeIsOpen}    
+                    /> 
+                )}
                 
-                {cardIsOpen && <CardModal 
-                onCardClose={ handleCardClose} onContributeCard={handleOpenContributeCard}
-                onHistoryOpen={() => setHistoryIsOpen(!historyIsOpen)} 
-                isHistoryOpen={historyIsOpen}
-                isCardOpen={cardIsOpen}
-                program={selectedProgram}
-                />}
+                {cardIsOpen && (
+                    <CardModal 
+                        onCardClose={handleCardClose} 
+                        onContributeCard={handleOpenContributeCard}
+                        program={selectedProgram}
+                    />
+                )}
 
                 <FundGoalSection />
                 <ExploreSection onOpen={() => setCardIsOpen(true)} selectedCard={setSelectedProgram} />

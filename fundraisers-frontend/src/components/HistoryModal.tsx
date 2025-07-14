@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { X, Calendar, DollarSign } from 'lucide-react';
 import { ProgramType } from "@/constants/ProgramData.constant";
 import { useContract } from "../hooks/useContract";
+import { ethers } from 'ethers'; // Ganti require() dengan import
 
 interface HistoryModalProps {
   onClose: () => void;
@@ -25,20 +26,8 @@ export default function HistoryModal({ onClose, program, isOpen }: HistoryModalP
 
   const { getProgramHistoryPublic } = useContract();
 
-  useEffect(() => {
-    if (isOpen && program) {
-      fetchHistory();
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isOpen, program]);
-
-  const fetchHistory = async () => {
+  // Fix untuk useEffect dependency warning
+  const fetchHistory = async (): Promise<void> => {
     if (!program) return;
 
     try {
@@ -51,13 +40,26 @@ export default function HistoryModal({ onClose, program, isOpen }: HistoryModalP
       console.log('✅ History data:', historyData);
       setHistory(historyData);
       
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('❌ Error fetching history:', error);
       setError('Failed to load transaction history');
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && program) {
+      fetchHistory(); // Call function directly inside useEffect
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen, program]); // Remove fetchHistory from dependencies
 
   const formatDate = (timestamp: bigint): string => {
     try {
@@ -76,7 +78,7 @@ export default function HistoryModal({ onClose, program, isOpen }: HistoryModalP
 
   const formatCurrency = (amount: bigint): string => {
     try {
-      const { ethers } = require('ethers');
+      // Gunakan ethers yang sudah di-import
       const formatted = ethers.formatUnits(amount, 2);
       const num = parseFloat(formatted);
       return num.toLocaleString('id-ID', {
@@ -86,6 +88,10 @@ export default function HistoryModal({ onClose, program, isOpen }: HistoryModalP
     } catch {
       return '0.00';
     }
+  };
+
+  const handleRetry = (): void => {
+    fetchHistory();
   };
 
   if (!isOpen || !program) return null;
@@ -121,7 +127,7 @@ export default function HistoryModal({ onClose, program, isOpen }: HistoryModalP
             <div className="text-center py-8">
               <p className="text-red-400 mb-4">⚠️ {error}</p>
               <button
-                onClick={fetchHistory}
+                onClick={handleRetry}
                 className="px-4 py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded-lg transition-colors"
               >
                 Try Again

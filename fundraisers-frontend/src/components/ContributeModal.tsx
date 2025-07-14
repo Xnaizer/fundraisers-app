@@ -30,7 +30,28 @@ export default function ContributeModal({
     getContract,
   } = useContract();
 
+  // Move loadUserData inside useEffect to avoid dependency warning
   useEffect(() => {
+    const loadUserData = async (): Promise<void> => {
+      try {
+        const isConnected = await checkConnection();
+        if (!isConnected) {
+          setError("Please connect your wallet first");
+          return;
+        }
+
+        const address = await getCurrentAddress();
+        if (address) {
+          setCurrentAddress(address);
+          const balance = await getIDRXBalance(address);
+          setUserBalance(balance);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        setError("Failed to load wallet data");
+      }
+    };
+
     if (isContributeOpen) {
       document.body.style.overflow = "hidden";
       loadUserData();
@@ -42,29 +63,9 @@ export default function ContributeModal({
     return () => {
       document.body.style.overflow = "auto";
     };
-  }, [isContributeOpen]);
+  }, [isContributeOpen]); // Remove loadUserData from dependencies
 
-  const loadUserData = async () => {
-    try {
-      const isConnected = await checkConnection();
-      if (!isConnected) {
-        setError("Please connect your wallet first");
-        return;
-      }
-
-      const address = await getCurrentAddress();
-      if (address) {
-        setCurrentAddress(address);
-        const balance = await getIDRXBalance(address);
-        setUserBalance(balance);
-      }
-    } catch (error: any) {
-      console.error("Error loading user data:", error);
-      setError("Failed to load wallet data");
-    }
-  };
-
-  const resetForm = () => {
+  const resetForm = (): void => {
     setAmount("");
     setError("");
     setSuccess("");
@@ -73,7 +74,7 @@ export default function ContributeModal({
     setIsContributing(false);
   };
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
     if (value === "" || /^\d*\.?\d*$/.test(value)) {
       setAmount(value);
@@ -95,7 +96,7 @@ export default function ContributeModal({
     return true;
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (): Promise<void> => {
     try {
       setError("");
 
@@ -129,19 +130,20 @@ export default function ContributeModal({
       console.log("✅ Approval confirmed");
       setIsApproved(true);
       setSuccess("IDRX spending approved! Now you can contribute.");
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error approving IDRX:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("user rejected")) {
         setError("Transaction was rejected by user");
       } else {
-        setError(`Approval failed: ${error.message}`);
+        setError(`Approval failed: ${errorMessage}`);
       }
     } finally {
       setIsApproving(false);
     }
   };
 
-  const handleContribute = async () => {
+  const handleContribute = async (): Promise<void> => {
     try {
       setError("");
       setSuccess("");
@@ -178,16 +180,21 @@ export default function ContributeModal({
         resetForm();
         onCardClose();
       }, 3000);
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error contributing:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("user rejected")) {
         setError("Transaction was rejected by user");
       } else {
-        setError(`Contribution failed: ${error.message}`);
+        setError(`Contribution failed: ${errorMessage}`);
       }
     } finally {
       setIsContributing(false);
     }
+  };
+
+  const handleUseMax = (): void => {
+    setAmount(userBalance);
   };
 
   const isLoading = isApproving || isContributing;
@@ -245,7 +252,7 @@ export default function ContributeModal({
           />
           <div className="text-right mb-4">
             <button
-              onClick={() => setAmount(userBalance)}
+              onClick={handleUseMax}
               className="text-xs text-cyan-400 hover:text-cyan-300 underline disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
@@ -269,7 +276,7 @@ export default function ContributeModal({
         )}
 
         <div className="flex flex-col gap-2 md:gap-4 w-full items-center">
-          {/* Approve Button - Menggunakan button HTML native */}
+          {/* Approve Button */}
           <button
             className={`text-white font-light border-[3px] md:py-2 px-4 rounded-xl h-12 text-sm md:text-md w-64 transition-all duration-300 flex items-center justify-center ${
               isApproved
@@ -296,7 +303,7 @@ export default function ContributeModal({
             )}
           </button>
 
-          {/* Contribute Button - Menggunakan button HTML native */}
+          {/* Contribute Button */}
           <button
             className={`text-white font-light border-[3px] md:py-2 px-4 rounded-xl h-12 text-sm md:text-md w-64 transition-all duration-300 flex items-center justify-center ${
               !isApproved

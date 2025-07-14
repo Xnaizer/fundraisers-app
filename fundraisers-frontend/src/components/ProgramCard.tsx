@@ -297,7 +297,7 @@ export default function ProgramCard(props: ProgramCardProps) {
         )}
 
         {/* Footer */}
-        <div className="flex justify-between items-center pt-2 text-[0.7rem] md:text-[0.75rem] border-t border-neutral-800 pt-4">
+        <div className="flex justify-between items-center  text-[0.7rem] md:text-[0.75rem] border-t border-neutral-800 pt-4">
           <div className="flex items-center gap-2 text-neutral-400">
             <LuClock3 className="text-neutral-500 flex-shrink-0" />
             <span className="truncate">Created {formatDate(createdAt)}</span>

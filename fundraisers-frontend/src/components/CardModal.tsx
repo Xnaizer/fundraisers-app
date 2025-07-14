@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Buttons from "./Buttons"
 import { X, ExternalLink, Calendar, User, Target, Settings, Ban, Send, Wallet } from 'lucide-react';
 import Image from "next/image";
@@ -45,21 +45,8 @@ export default function CardModal({
     deactivateProgram
   } = useContract();
 
-  useEffect(() => {
-    if (program) {
-      document.body.style.overflow = 'hidden';
-      determineUserRole();
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [program]);
-
-  // Determine user role based on wallet address
-  const determineUserRole = async () => {
+  // Determine user role - wrapped in useCallback to avoid dependency warning
+  const determineUserRole = async (): Promise<void> => {
     try {
       const isConnected = await checkConnection();
       if (!isConnected) {
@@ -89,14 +76,31 @@ export default function CardModal({
       }
 
       setUserRole('user');
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error determining user role:', error);
       setUserRole('user');
     }
   };
 
+  useEffect(() => {
+    if (program) {
+      // Prevent body scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+      
+      // Determine user role when component mounts
+      determineUserRole();
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+
+    // Cleanup function
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [program]); // Only depend on program, determineUserRole is called inside
+
   // Enhanced Admin actions with fund checking
-  const handleDeactivateProgram = async () => {
+  const handleDeactivateProgram = async (): Promise<void> => {
     if (!program) return;
 
     try {
@@ -115,7 +119,7 @@ export default function CardModal({
         window.location.reload();
       }, 2000);
 
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('❌ Error deactivating program:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('user rejected')) {
@@ -129,7 +133,7 @@ export default function CardModal({
   };
 
   // Enhanced Allocate Fund with fund checking
-  const handleAllocateFund = async () => {
+  const handleAllocateFund = async (): Promise<void> => {
     if (!program) return;
 
     try {
@@ -170,7 +174,7 @@ export default function CardModal({
         window.location.reload();
       }, 2000);
 
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('❌ Error allocating fund:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       if (errorMessage.includes('user rejected')) {
@@ -186,12 +190,12 @@ export default function CardModal({
   };
 
   // Open withdrawal modal
-  const handleWithdraw = () => {
+  const handleWithdraw = (): void => {
     setIsWithdrawalModalOpen(true);
   };
 
   // Open history modal
-  const handleHistoryOpen = () => {
+  const handleHistoryOpen = (): void => {
     setIsHistoryModalOpen(true);
   };
 
@@ -227,7 +231,7 @@ export default function CardModal({
   };
 
   // Copy address to clipboard
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
       setCopySuccess(true);
@@ -238,7 +242,7 @@ export default function CardModal({
   };
 
   // Get status badge
-  const getStatusBadge = (status?: number) => {
+  const getStatusBadge = (status?: number): { text: string; color: string } => {
     switch (status) {
       case 0:
         return { text: 'Inactive', color: 'bg-gray-500/20 text-gray-400 border-gray-500/50' };
@@ -254,8 +258,8 @@ export default function CardModal({
   };
 
   // Get action buttons based on user role
-  const getActionButtons = (): JSX.Element[] => {
-    const buttons: JSX.Element[] = [];
+  const getActionButtons = (): React.ReactElement[] => {
+    const buttons: React.ReactElement[] = [];
 
     // Program link (available for all if exists)
     if (program?.programLink) {
@@ -510,7 +514,7 @@ export default function CardModal({
             {/* PIC Address */}
             <div className="mb-8 p-4 bg-neutral-900 rounded-lg border border-neutral-800">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm text-neutral-400 mb-1">PIC Address</p>
                   <p className="font-mono text-sm text-white break-all">
                     {program.pic}
@@ -518,7 +522,7 @@ export default function CardModal({
                 </div>
                 <button
                   onClick={() => copyToClipboard(program.pic)}
-                  className="ml-2 px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded text-xs transition-colors"
+                  className="ml-2 px-3 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded text-xs transition-colors flex-shrink-0"
                 >
                   {copySuccess ? '✓ Copied' : 'Copy'}
                 </button>

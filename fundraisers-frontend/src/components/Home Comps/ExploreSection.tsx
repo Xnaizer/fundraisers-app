@@ -180,8 +180,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showMore, setShowMore] = useState<boolean>(false);
-  const [selectedStatus, setSelectedStatus] = useState<'active' | ProgramStatus>('active'); // Removed 'all' option
-  const [showInactive, setShowInactive] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<'active' | ProgramStatus>('active');
   
   // Use ref to prevent infinite loops
   const hasLoadedRef = useRef(false);
@@ -198,7 +197,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
     return programs.filter(program => program.status === statusFilter);
   };
 
-  const loadPrograms = async () => {
+  const loadPrograms = async (): Promise<void> => {
     // Prevent multiple concurrent calls
     if (isLoadingRef.current) {
       console.log('⚠️ Already loading, skipping...');
@@ -214,7 +213,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       setError('');
       
       // Add timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) => {
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000);
       });
 
@@ -223,7 +222,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       const blockchainPrograms = await Promise.race([
         getAllProgramsPublic(),
         timeoutPromise
-      ]) as any[];
+      ]) as BlockchainProgram[];
       
       const loadTime = Date.now() - startTime;
       console.log(`✅ Raw programs loaded in ${loadTime}ms:`, blockchainPrograms?.length || 0);
@@ -249,9 +248,9 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       // Convert blockchain programs to ProgramType format
       const convertedPrograms = blockchainPrograms
-        .map((program: unknown, index: number) => {
+        .map((program: BlockchainProgram, index: number) => {
           try {
-            return convertBlockchainProgram(program as BlockchainProgram, index);
+            return convertBlockchainProgram(program, index);
           } catch (conversionError) {
             console.error(`Error converting program ${index}:`, conversionError, program);
             return null;
@@ -289,7 +288,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
         }
       }
       
-    } catch (error: unknown) {
+    } catch (error) {
       const loadTime = Date.now() - startTime;
       console.error(`❌ Error loading programs after ${loadTime}ms:`, error);
       
@@ -340,7 +339,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
   const showProgramCard = showMore ? filteredPrograms : filteredPrograms.slice(0, 6);
 
   // Manual refresh function
-  const handleRefresh = () => {
+  const handleRefresh = (): void => {
     console.log('🔄 Manual refresh triggered');
     hasLoadedRef.current = false;
     loadPrograms();
@@ -359,13 +358,8 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
   };
 
   // Handle status filter change
-  const handleStatusChange = (status: 'active' | ProgramStatus) => {
+  const handleStatusChange = (status: 'active' | ProgramStatus): void => {
     setSelectedStatus(status);
-    if (status === ProgramStatus.INACTIVE) {
-      setShowInactive(true);
-    } else {
-      setShowInactive(false);
-    }
   };
 
   // Loading state with better skeleton and debug info
@@ -468,7 +462,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
             </div>
           </div>
 
-          {/* Status Filter Buttons - Removed All Programs Button */}
+          {/* Status Filter Buttons */}
           {statusCounts.all > 0 && (
             <div className="flex flex-wrap gap-3 mb-8 justify-center">
               {/* Active Programs Button */}
@@ -607,9 +601,6 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
                         isInactive ? 'opacity-75 grayscale-[50%]' : ''
                       }`}
                     >
-                      {/* Status Badge */}
-
-                      
                       <div className={isInactive ? 'relative' : ''}>
                         {isInactive && (
                           <div className="absolute inset-0 bg-black/20 z-10 rounded-lg pointer-events-none"></div>
@@ -733,10 +724,6 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
               </div>
             </div>
           )}
-
-
-
-
         </div>
       </div>
     </section>

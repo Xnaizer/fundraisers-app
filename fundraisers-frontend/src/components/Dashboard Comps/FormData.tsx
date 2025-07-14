@@ -18,7 +18,6 @@ interface FormDataState {
   photoFile: File | null;
 }
 
-
 export default function FormData() {
   const [formData, setFormData] = useState<FormDataState>({
     programName: '',
@@ -46,7 +45,7 @@ export default function FormData() {
     getContract 
   } = useContract();
 
-  const checkAdminAuth = useCallback(async () => {
+  const checkAdminAuth = useCallback(async (): Promise<void> => {
     try {
       const isConnected = await checkConnection();
       if (!isConnected) {
@@ -72,7 +71,7 @@ export default function FormData() {
       } else {
         setError('Access denied: Only contract owner can create programs');
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('Error checking admin auth:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       setError(`Failed to verify admin access: ${errorMessage}`);
@@ -83,13 +82,13 @@ export default function FormData() {
     checkAdminAuth();
   }, [checkAdminAuth]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): void => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file type
@@ -113,7 +112,7 @@ export default function FormData() {
     }
   };
 
-  const removeFile = () => {
+  const removeFile = (): void => {
     setFormData(prev => ({ ...prev, photoFile: null }));
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -166,7 +165,7 @@ export default function FormData() {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     
     if (!isAuthorized) {
@@ -190,11 +189,17 @@ export default function FormData() {
 
       console.log('✅ Image uploaded to IPFS:', photoUrl);
 
-      // Step 2: Create program on blockchain
+      // Step 2: Convert target budget string to bigint
+      // Assuming 2 decimal places for IDRX (like cents for USD)
+      const targetAmountString = parseFloat(formData.targetBudget).toFixed(2);
+      const targetAmountInSmallestUnit = Math.round(parseFloat(targetAmountString) * 100);
+      const targetBigInt = BigInt(targetAmountInSmallestUnit);
+
+      // Step 3: Create program on blockchain
       const programData = {
         name: formData.programName.trim(),
         picName: formData.picName.trim(),
-        target: formData.targetBudget, // Keep as string - useContract will handle conversion
+        target: targetBigInt, // Now sending as bigint
         desc: formData.description.trim(),
         pic: formData.addressPic.trim(),
         category: formData.category,
@@ -202,7 +207,10 @@ export default function FormData() {
         photoUrl: photoUrl
       };
 
-      console.log('📝 Creating program with data:', programData);
+      console.log('📝 Creating program with data:', {
+        ...programData,
+        target: targetBigInt.toString() // Log as string for readability
+      });
 
       const txHash = await createProgram(programData);
       
@@ -225,7 +233,7 @@ export default function FormData() {
       // Auto-hide success message
       setTimeout(() => setSuccess(''), 5000);
 
-    } catch (error: unknown) {
+    } catch (error) {
       console.error('❌ Error creating program:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
@@ -239,6 +247,15 @@ export default function FormData() {
       setIsUploading(false);
     }
   };
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   if (!isAuthorized && !error) {
     return (
@@ -365,18 +382,25 @@ export default function FormData() {
             />
           </div>
 
-          <input
-            type="number"
-            name="targetBudget"
-            value={formData.targetBudget}
-            onChange={handleInputChange}
-            placeholder="Target Budget (IDRX)"
-            step="0.01"
-            min="0"
-            className="w-full px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-            disabled={!isAuthorized || isSubmitting}
-            required
-          />
+          <div className="relative">
+            <input
+              type="number"
+              name="targetBudget"
+              value={formData.targetBudget}
+              onChange={handleInputChange}
+              placeholder="Target Budget (IDRX)"
+              step="0.01"
+              min="0"
+              className="w-full px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
+              disabled={!isAuthorized || isSubmitting}
+              required
+            />
+            {formData.targetBudget && (
+              <div className="text-xs text-cyan-400 mt-1">
+                Amount in wei: {Math.round(parseFloat(formData.targetBudget || '0') * 100)}
+              </div>
+            )}
+          </div>
 
           {/* File Upload Section */}
           <div className="w-full">

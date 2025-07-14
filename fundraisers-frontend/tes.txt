@@ -1,2 +1,0 @@
-
-Jadi fungsi untuk mengetahui remaining IDRX sudah ada, dan bisa diperluas dengan fungsi-fungsi tambahan di atas untuk memberikan informasi yang lebih komprehensif tentang status fund di smart contract! 🚀

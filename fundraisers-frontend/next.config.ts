@@ -17,20 +17,28 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.pinata.cloud', // Wildcard untuk semua subdomain Pinata
+        hostname: '*.pinata.cloud',
         port: '',
         pathname: '/**',
       },
     ],
   },
-  webpack: (config: any) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      net: false,
-      tls: false,
+  webpack: (config: Record<string, unknown>) => {
+    const webpackConfig = config as {
+      resolve?: {
+        fallback?: Record<string, boolean | string>;
+      };
     };
-    return config;
+    
+    if (webpackConfig.resolve) {
+      webpackConfig.resolve.fallback = {
+        ...webpackConfig.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return webpackConfig;
   },
   experimental: {
     esmExternals: true,
