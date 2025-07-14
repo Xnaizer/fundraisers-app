@@ -252,7 +252,7 @@ export default function FormData() {
   }
 
   return (
-    <div className="bg-black min-h-screen w-full z-50 flex items-center justify-center p-4 sm:p-8 md:p-12">
+    <div className="bg-black py-64 min-h-screen w-full z-50 flex items-center justify-center p-4 sm:p-8 md:p-12">
       <div className="bg-neutral-950 text-white w-full max-w-[90%] sm:max-w-2xl p-14 sm:p-16 md:p-20 mt-16 rounded-2xl relative"
         style={{ boxShadow: '0 0 10px 1px rgba(0, 100, 255, 1)' }}>
         

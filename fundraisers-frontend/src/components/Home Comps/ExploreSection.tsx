@@ -1,6 +1,6 @@
 "use client"
 
-import { ProgramType, ProgramStatus, CategoryType } from "@/constants/ProgramData.constant";
+import { ProgramType, CategoryType } from "@/constants/ProgramData.constant";
 import ProgramCard from "../ProgramCard";
 import { useState, useEffect, useRef } from "react";
 import Buttons from "../Buttons";
@@ -26,6 +26,60 @@ interface BlockchainProgram {
   programLink: string;
   photoUrl: string;
 }
+
+// Program status enum for better type safety
+enum ProgramStatus {
+  INACTIVE = 0,
+  REGISTERED = 1,
+  ALLOCATED = 2,
+  FINISHED = 3
+}
+
+// Status display information
+const getStatusInfo = (status: number) => {
+  switch (status) {
+    case ProgramStatus.REGISTERED:
+      return {
+        label: "Open for Funding",
+        color: "text-green-400",
+        bgColor: "bg-green-400/10",
+        borderColor: "border-green-400/30",
+        icon: "🟢"
+      };
+    case ProgramStatus.ALLOCATED:
+      return {
+        label: "Funds Allocated",
+        color: "text-blue-400",
+        bgColor: "bg-blue-400/10",
+        borderColor: "border-blue-400/30",
+        icon: "🔵"
+      };
+    case ProgramStatus.FINISHED:
+      return {
+        label: "Completed",
+        color: "text-purple-400",
+        bgColor: "bg-purple-400/10",
+        borderColor: "border-purple-400/30",
+        icon: "🟣"
+      };
+    case ProgramStatus.INACTIVE:
+      return {
+        label: "Inactive",
+        color: "text-gray-400",
+        bgColor: "bg-gray-400/10",
+        borderColor: "border-gray-400/30",
+        icon: "⚫"
+      };
+    default:
+      return {
+        label: "Unknown",
+        color: "text-gray-400",
+        bgColor: "bg-gray-400/10",
+        borderColor: "border-gray-400/30",
+        icon: "⚪"
+      };
+  }
+};
 
 // Convert blockchain program to ProgramType
 const convertBlockchainProgram = (program: BlockchainProgram, index: number): ProgramType => {
@@ -121,16 +175,28 @@ const convertBlockchainProgram = (program: BlockchainProgram, index: number): Pr
 };
 
 export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionProps) {
-  const [programs, setPrograms] = useState<ProgramType[]>([]);
+  const [allPrograms, setAllPrograms] = useState<ProgramType[]>([]);
+  const [filteredPrograms, setFilteredPrograms] = useState<ProgramType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showMore, setShowMore] = useState<boolean>(false);
+  const [selectedStatus, setSelectedStatus] = useState<'active' | ProgramStatus>('active'); // Removed 'all' option
+  const [showInactive, setShowInactive] = useState(false);
   
   // Use ref to prevent infinite loops
   const hasLoadedRef = useRef(false);
   const isLoadingRef = useRef(false);
   
   const { getAllProgramsPublic } = useContract();
+
+  // Filter programs based on status
+  const filterPrograms = (programs: ProgramType[], statusFilter: 'active' | ProgramStatus) => {
+    if (statusFilter === 'active') {
+      return programs.filter(program => program.status !== ProgramStatus.INACTIVE);
+    }
+    
+    return programs.filter(program => program.status === statusFilter);
+  };
 
   const loadPrograms = async () => {
     // Prevent multiple concurrent calls
@@ -175,7 +241,8 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       if (blockchainPrograms.length === 0) {
         console.log('📭 No programs found on blockchain');
-        setPrograms([]);
+        setAllPrograms([]);
+        setFilteredPrograms([]);
         setError('No programs found. Be the first to create one!');
         return;
       }
@@ -207,11 +274,19 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       console.log('✅ Valid programs after filtering:', convertedPrograms.length);
       
-      setPrograms(convertedPrograms);
+      // Apply current filter
+      const filtered = filterPrograms(convertedPrograms, selectedStatus);
+      
+      setAllPrograms(convertedPrograms);
+      setFilteredPrograms(filtered);
       hasLoadedRef.current = true;
       
-      if (convertedPrograms.length === 0) {
-        setError('No active programs found. Create your first program!');
+      if (filtered.length === 0 && convertedPrograms.length > 0) {
+        if (selectedStatus === 'active') {
+          setError('No active programs found. All programs are currently inactive.');
+        } else {
+          setError(`No programs found with status: ${selectedStatus}`);
+        }
       }
       
     } catch (error: unknown) {
@@ -252,7 +327,17 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
     }
   }, []); // Empty dependency array - only run once on mount
 
-  const showProgramCard = showMore ? programs : programs.slice(0, 6);
+  // Update filtered programs when status filter changes
+  useEffect(() => {
+    if (allPrograms.length > 0) {
+      const filtered = filterPrograms(allPrograms, selectedStatus);
+      setFilteredPrograms(filtered);
+      setShowMore(false); // Reset show more when filter changes
+      setError(''); // Clear errors when filter changes
+    }
+  }, [selectedStatus, allPrograms]);
+
+  const showProgramCard = showMore ? filteredPrograms : filteredPrograms.slice(0, 6);
 
   // Manual refresh function
   const handleRefresh = () => {
@@ -261,8 +346,30 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
     loadPrograms();
   };
 
+  // Get program counts by status
+  const getStatusCounts = () => {
+    return {
+      all: allPrograms.length,
+      active: allPrograms.filter(p => p.status !== ProgramStatus.INACTIVE).length,
+      inactive: allPrograms.filter(p => p.status === ProgramStatus.INACTIVE).length,
+      registered: allPrograms.filter(p => p.status === ProgramStatus.REGISTERED).length,
+      allocated: allPrograms.filter(p => p.status === ProgramStatus.ALLOCATED).length,
+      finished: allPrograms.filter(p => p.status === ProgramStatus.FINISHED).length,
+    };
+  };
+
+  // Handle status filter change
+  const handleStatusChange = (status: 'active' | ProgramStatus) => {
+    setSelectedStatus(status);
+    if (status === ProgramStatus.INACTIVE) {
+      setShowInactive(true);
+    } else {
+      setShowInactive(false);
+    }
+  };
+
   // Loading state with better skeleton and debug info
-  if (loading && programs.length === 0) {
+  if (loading && allPrograms.length === 0) {
     return (
       <section
         id="ExploreSection"
@@ -329,6 +436,8 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
     );
   }
 
+  const statusCounts = getStatusCounts();
+
   return (
     <section
       id="ExploreSection"
@@ -347,15 +456,113 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
             {/* Enhanced Programs count */}
             <div className="text-right">
               <div className="text-sm text-gray-400">
-                {programs.length} Program{programs.length !== 1 ? 's' : ''}
+                {filteredPrograms.length} Program{filteredPrograms.length !== 1 ? 's' : ''}
+                {selectedStatus === 'active' && ' Active'}
+                {selectedStatus === ProgramStatus.INACTIVE && ' Inactive'}
               </div>
-              {showMore && programs.length > 6 && (
+              {showMore && filteredPrograms.length > 6 && (
                 <div className="text-xs text-neutral-500">
                   Showing all programs
                 </div>
               )}
             </div>
           </div>
+
+          {/* Status Filter Buttons - Removed All Programs Button */}
+          {statusCounts.all > 0 && (
+            <div className="flex flex-wrap gap-3 mb-8 justify-center">
+              {/* Active Programs Button */}
+              <button
+                onClick={() => handleStatusChange('active')}
+                className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2 ${
+                  selectedStatus === 'active'
+                    ? 'bg-emerald-500 text-white shadow-lg'
+                    : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
+                }`}
+              >
+                <span>✅</span>
+                Active Programs ({statusCounts.active})
+              </button>
+              
+              {/* Individual Status Buttons */}
+              {statusCounts.registered > 0 && (
+                <button
+                  onClick={() => handleStatusChange(ProgramStatus.REGISTERED)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2 ${
+                    selectedStatus === ProgramStatus.REGISTERED
+                      ? 'bg-green-500 text-white shadow-lg'
+                      : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
+                  }`}
+                >
+                  <span>🟢</span>
+                  Open for Funding ({statusCounts.registered})
+                </button>
+              )}
+              
+              {statusCounts.allocated > 0 && (
+                <button
+                  onClick={() => handleStatusChange(ProgramStatus.ALLOCATED)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2 ${
+                    selectedStatus === ProgramStatus.ALLOCATED
+                      ? 'bg-blue-500 text-white shadow-lg'
+                      : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
+                  }`}
+                >
+                  <span>🔵</span>
+                  Funds Allocated ({statusCounts.allocated})
+                </button>
+              )}
+              
+              {statusCounts.finished > 0 && (
+                <button
+                  onClick={() => handleStatusChange(ProgramStatus.FINISHED)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2 ${
+                    selectedStatus === ProgramStatus.FINISHED
+                      ? 'bg-purple-500 text-white shadow-lg'
+                      : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
+                  }`}
+                >
+                  <span>🟣</span>
+                  Completed ({statusCounts.finished})
+                </button>
+              )}
+
+              {/* Inactive Programs Button */}
+              {statusCounts.inactive > 0 && (
+                <button
+                  onClick={() => handleStatusChange(ProgramStatus.INACTIVE)}
+                  className={`px-4 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2 ${
+                    selectedStatus === ProgramStatus.INACTIVE
+                      ? 'bg-red-500 text-white shadow-lg'
+                      : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700 border border-red-500/30'
+                  }`}
+                >
+                  <span>⚫</span>
+                  Inactive ({statusCounts.inactive})
+                  {selectedStatus !== ProgramStatus.INACTIVE && (
+                    <span className="text-xs bg-red-500/20 px-2 py-0.5 rounded-full">
+                      Hidden
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Warning for Inactive Programs */}
+          {selectedStatus === ProgramStatus.INACTIVE && (
+            <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="text-yellow-400 font-medium">Showing Inactive Programs</p>
+                  <p className="text-yellow-300/80 text-sm">
+                    These programs are not accepting donations and may be archived or cancelled.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Enhanced Error state */}
           {error && (
@@ -385,31 +592,51 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
           )}
 
           {/* Programs grid */}
-          {programs.length > 0 && (
+          {filteredPrograms.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-12 justify-items-center sm:px-8">
-                {showProgramCard.map((program, index) => (
-                  <ProgramCard 
-                    key={`${program.id}-${program.name}-${index}`}  
-                    onOpen={() => {
-                      selectedCard(program);
-                      onOpen();
-                    }} 
-                    name={program.name}   
-                    desc={program.desc}
-                    category={program.category}
-                    createdAt={program.createdAt}
-                    photoUrl={program.photoUrl}
-                    target={program.target}
-                    allocated={program.allocated}
-                    status={program.status}
-                    picName={program.picName}
-                  />
-                ))}
+                {showProgramCard.map((program, index) => {
+                  const statusInfo = getStatusInfo(program.status);
+                  const isInactive = program.status === ProgramStatus.INACTIVE;
+                  console.log(statusInfo);
+                  
+                  return (
+                    <div 
+                      key={`${program.id}-${program.name}-${index}`} 
+                      className={`w-full max-w-sm lg:max-w-md transition-all duration-300 ${
+                        isInactive ? 'opacity-75 grayscale-[50%]' : ''
+                      }`}
+                    >
+                      {/* Status Badge */}
+
+                      
+                      <div className={isInactive ? 'relative' : ''}>
+                        {isInactive && (
+                          <div className="absolute inset-0 bg-black/20 z-10 rounded-lg pointer-events-none"></div>
+                        )}
+                        <ProgramCard 
+                          onOpen={() => {
+                            selectedCard(program);
+                            onOpen();
+                          }} 
+                          name={program.name}   
+                          desc={program.desc}
+                          category={program.category}
+                          createdAt={program.createdAt}
+                          photoUrl={program.photoUrl}
+                          target={program.target}
+                          allocated={program.allocated}
+                          status={program.status}
+                          picName={program.picName}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Enhanced Show More/Less button */}
-              {programs.length > 6 && (
+              {filteredPrograms.length > 6 && (
                 <div className="w-full flex mx-auto justify-center mt-12">
                   <Buttons 
                     type="button" 
@@ -418,11 +645,11 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
                   >
                     {showMore ? (
                       <>
-                        Show Less ({programs.length - 6} hidden)
+                        Show Less ({filteredPrograms.length - 6} hidden)
                       </>
                     ) : (
                       <>
-                        Show {programs.length - 6} More Programs
+                        Show {filteredPrograms.length - 6} More Programs
                       </>
                     )}
                   </Buttons>
@@ -451,7 +678,37 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
           )}
 
           {/* Enhanced Empty state */}
-          {programs.length === 0 && !error && !loading && (
+          {filteredPrograms.length === 0 && !error && !loading && allPrograms.length > 0 && (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-full flex items-center justify-center">
+                <span className="text-4xl">🔍</span>
+              </div>
+              <h3 className="text-xl text-white mb-2">No Programs Found</h3>
+              <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                {selectedStatus === ProgramStatus.INACTIVE 
+                  ? 'No inactive programs found. All programs are currently active!'
+                  : 'No programs match the selected status filter. Try selecting a different status or check back later.'
+                }
+              </p>
+              <div className="flex gap-4 justify-center flex-wrap">
+                <button
+                  onClick={() => handleStatusChange('active')}
+                  className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors duration-300"
+                >
+                  Show Active Programs
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  className="px-6 py-3 border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors duration-300"
+                >
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced Empty state - No programs at all */}
+          {allPrograms.length === 0 && !error && !loading && (
             <div className="text-center py-16">
               <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-full flex items-center justify-center">
                 <span className="text-4xl">📋</span>
@@ -476,6 +733,10 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
               </div>
             </div>
           )}
+
+
+
+
         </div>
       </div>
     </section>

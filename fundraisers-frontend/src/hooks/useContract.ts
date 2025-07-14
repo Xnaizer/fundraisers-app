@@ -8,6 +8,26 @@ import {
   Program,
 } from "../../contracts/contractConfig";
 
+// Types untuk error handling
+interface BlockchainError extends Error {
+  code?: string | number;
+  data?: unknown;
+  reason?: string;
+}
+
+// Types untuk Ethereum provider
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
+}
+
+declare global {
+  interface Window {
+    ethereum?: EthereumProvider;
+  }
+}
+
 // Types untuk history dan response
 interface ProgramHistory {
   timestamp: bigint;
@@ -92,7 +112,7 @@ export const useContract = (): UseContractReturn => {
     const abi = contractName === "IDRX" ? IDRX_ABI : FUNDRAISERS_ABI;
     const address = CONTRACT_ADDRESSES[contractName];
 
-    return new ethers.Contract(address, abi as any, provider);
+    return new ethers.Contract(address, abi, provider);
   };
 
   const isWalletConnected = (): boolean => {
@@ -104,7 +124,7 @@ export const useContract = (): UseContractReturn => {
       if (!window.ethereum) return false;
       const accounts = await window.ethereum.request({
         method: "eth_accounts",
-      });
+      }) as string[];
       return accounts.length > 0;
     } catch (error) {
       console.error("Error checking connection:", error);
@@ -117,7 +137,7 @@ export const useContract = (): UseContractReturn => {
       if (!window.ethereum) return null;
       const accounts = await window.ethereum.request({
         method: "eth_accounts",
-      });
+      }) as string[];
       return accounts[0] || null;
     } catch (error) {
       console.error("Error getting current address:", error);
@@ -137,10 +157,11 @@ export const useContract = (): UseContractReturn => {
       });
 
       return true;
-    } catch (error: any) {
-      if (error.code === 4902) {
+    } catch (error) {
+      const blockchainError = error as BlockchainError;
+      if (blockchainError.code === 4902) {
         try {
-          await window.ethereum.request({
+          await window.ethereum!.request({
             method: 'wallet_addEthereumChain',
             params: [{
               chainId: `0x${LISK_SEPOLIA_CHAIN_ID.toString(16)}`,
@@ -217,14 +238,15 @@ export const useContract = (): UseContractReturn => {
         );
       }
 
-      const contract = new ethers.Contract(address, abi as any, signer);
+      const contract = new ethers.Contract(address, abi, signer);
       console.log("✅ Contract created successfully");
 
       return contract;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error in getContract:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(
-        `Failed to get contract ${contractName}: ${error.message}`
+        `Failed to get contract ${contractName}: ${errorMessage}`
       );
     }
   };
@@ -258,14 +280,14 @@ export const useContract = (): UseContractReturn => {
       }
 
       const contract = userAddress ? getReadOnlyContract("IDRX") : await getContract("IDRX");
-      const balance = await contract.balanceOf(targetAddress);
+      const balance = await contract.balanceOf(targetAddress) as bigint;
 
       console.log("✅ Raw balance:", balance.toString());
       const formatted = ethers.formatUnits(balance, 2); // TETAP 2 DECIMALS
       console.log("✅ Formatted balance:", formatted);
 
       return formatted;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX balance:", error);
       return "0";
     }
@@ -278,9 +300,9 @@ export const useContract = (): UseContractReturn => {
       }
 
       const contract = getReadOnlyContract("IDRX");
-      const balance = await contract.balanceOf(userAddress);
+      const balance = await contract.balanceOf(userAddress) as bigint;
       return ethers.formatUnits(balance, 2); // UBAH DARI 18 KE 2
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX balance (public):", error);
       return "0";
     }
@@ -289,9 +311,9 @@ export const useContract = (): UseContractReturn => {
   const getIDRXTotalSupply = async (): Promise<string> => {
     try {
       const contract = await getContract("IDRX");
-      const totalSupply = await contract.totalSupply();
+      const totalSupply = await contract.totalSupply() as bigint;
       return ethers.formatUnits(totalSupply, 2); // UBAH DARI 18 KE 2
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX total supply:", error);
       return "0";
     }
@@ -300,9 +322,9 @@ export const useContract = (): UseContractReturn => {
   const getIDRXTotalSupplyPublic = async (): Promise<string> => {
     try {
       const contract = getReadOnlyContract("IDRX");
-      const totalSupply = await contract.totalSupply();
+      const totalSupply = await contract.totalSupply() as bigint;
       return ethers.formatUnits(totalSupply, 2); // UBAH DARI 18 KE 2
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX total supply (public):", error);
       return "0";
     }
@@ -315,9 +337,9 @@ export const useContract = (): UseContractReturn => {
       }
 
       const contract = await getContract("IDRX");
-      const allowance = await contract.allowance(owner, spender);
+      const allowance = await contract.allowance(owner, spender) as bigint;
       return ethers.formatUnits(allowance, 2); // UBAH DARI 18 KE 2
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX allowance:", error);
       return "0";
     }
@@ -337,13 +359,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
       
       console.log("✅ IDRX approval successful");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error approving IDRX:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`IDRX approval failed: ${error.message}`);
+      throw new Error(`IDRX approval failed: ${errorMessage}`);
     }
   };
 
@@ -361,13 +384,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
       
       console.log("✅ IDRX transfer successful");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error transferring IDRX:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`IDRX transfer failed: ${error.message}`);
+      throw new Error(`IDRX transfer failed: ${errorMessage}`);
     }
   };
 
@@ -385,13 +409,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
       
       console.log("✅ IDRX mint successful");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error minting IDRX:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`IDRX mint failed: ${error.message}`);
+      throw new Error(`IDRX mint failed: ${errorMessage}`);
     }
   };
 
@@ -437,13 +462,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Program created successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error creating program:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Program creation failed: ${error.message}`);
+      throw new Error(`Program creation failed: ${errorMessage}`);
     }
   };
 
@@ -470,13 +496,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Program updated successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error updating program:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Program update failed: ${error.message}`);
+      throw new Error(`Program update failed: ${errorMessage}`);
     }
   };
 
@@ -490,13 +517,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Program deactivated successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error deactivating program:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Program deactivation failed: ${error.message}`);
+      throw new Error(`Program deactivation failed: ${errorMessage}`);
     }
   };
 
@@ -510,13 +538,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Fund allocated successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error allocating fund:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Fund allocation failed: ${error.message}`);
+      throw new Error(`Fund allocation failed: ${errorMessage}`);
     }
   };
 
@@ -530,13 +559,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Program marked as finished successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error marking program as finished:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Mark as finished failed: ${error.message}`);
+      throw new Error(`Mark as finished failed: ${errorMessage}`);
     }
   };
 
@@ -552,13 +582,14 @@ export const useContract = (): UseContractReturn => {
       await tx.wait();
 
       console.log("✅ Fund withdrawn successfully");
-      return tx.hash;
-    } catch (error: any) {
+      return tx.hash as string;
+    } catch (error) {
       console.error("❌ Error withdrawing fund:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Fund withdrawal failed: ${error.message}`);
+      throw new Error(`Fund withdrawal failed: ${errorMessage}`);
     }
   };
 
@@ -608,13 +639,14 @@ export const useContract = (): UseContractReturn => {
       await sendTx.wait();
       console.log("✅ Donation sent successfully");
 
-      return sendTx.hash;
-    } catch (error: any) {
+      return sendTx.hash as string;
+    } catch (error) {
       console.error("❌ Error sending donation:", error);
-      if (error.message.includes("user rejected")) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes("user rejected")) {
         throw new Error("Transaction was rejected by user");
       }
-      throw new Error(`Donation failed: ${error.message}`);
+      throw new Error(`Donation failed: ${errorMessage}`);
     }
   };
 
@@ -633,11 +665,11 @@ export const useContract = (): UseContractReturn => {
       }
 
       const contract = await getContract("FUNDRAISERS");
-      const programs = await contract.getAllProgram();
+      const programs = await contract.getAllProgram() as Program[];
 
       console.log("✅ Programs loaded:", programs.length);
       return programs;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting programs, trying public method:", error);
       return await getAllProgramsPublic();
     }
@@ -648,11 +680,11 @@ export const useContract = (): UseContractReturn => {
       console.log("🔍 Getting all programs (public)...");
 
       const contract = getReadOnlyContract("FUNDRAISERS");
-      const programs = await contract.getAllProgram();
+      const programs = await contract.getAllProgram() as Program[];
 
       console.log("✅ Programs loaded (public):", programs.length);
       return programs;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting programs (public):", error);
       return [];
     }
@@ -661,9 +693,9 @@ export const useContract = (): UseContractReturn => {
   const getProgramById = async (programId: number): Promise<Program | null> => {
     try {
       const contract = await getContract("FUNDRAISERS");
-      const program = await contract.programs(programId);
+      const program = await contract.programs(programId) as Program;
       return program;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting program by ID:", error);
       return null;
     }
@@ -672,9 +704,9 @@ export const useContract = (): UseContractReturn => {
   const getProgramByIdPublic = async (programId: number): Promise<Program | null> => {
     try {
       const contract = getReadOnlyContract("FUNDRAISERS");
-      const program = await contract.programs(programId);
+      const program = await contract.programs(programId) as Program;
       return program;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting program by ID (public):", error);
       return null;
     }
@@ -683,9 +715,9 @@ export const useContract = (): UseContractReturn => {
   const getProgramHistory = async (programId: number): Promise<ProgramHistory[]> => {
     try {
       const contract = await getContract("FUNDRAISERS");
-      const history = await contract.getProgramHistory(programId);
+      const history = await contract.getProgramHistory(programId) as ProgramHistory[];
       return history;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting program history:", error);
       return [];
     }
@@ -694,9 +726,9 @@ export const useContract = (): UseContractReturn => {
   const getProgramHistoryPublic = async (programId: number): Promise<ProgramHistory[]> => {
     try {
       const contract = getReadOnlyContract("FUNDRAISERS");
-      const history = await contract.getProgramHistory(programId);
+      const history = await contract.getProgramHistory(programId) as ProgramHistory[];
       return history;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting program history (public):", error);
       return [];
     }
@@ -717,14 +749,14 @@ export const useContract = (): UseContractReturn => {
         return "0";
       }
 
-      const total: any = await contract.totalManagedFund();
+      const total = await contract.totalManagedFund() as bigint;
       console.log("✅ Raw total managed fund (public):", String(total));
 
       const formatted = ethers.formatUnits(total, 2); // UBAH DARI 18 KE 2
       console.log("✅ Formatted total managed fund (public):", formatted);
 
       return formatted;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting total managed fund (public):", error);
       return "0";
     }
@@ -745,14 +777,14 @@ export const useContract = (): UseContractReturn => {
         return "0";
       }
 
-      const total: any = await contract.totalAllocated();
+      const total = await contract.totalAllocated() as bigint;
       console.log("✅ Raw total allocated (public):", String(total));
 
       const formatted = ethers.formatUnits(total, 2); // UBAH DARI 18 KE 2
       console.log("✅ Formatted total allocated (public):", formatted);
 
       return formatted;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting total allocated (public):", error);
       return "0";
     }
@@ -770,7 +802,7 @@ export const useContract = (): UseContractReturn => {
       const count = programs.length;
       console.log("✅ Total programs created (public):", count);
       return count;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting total programs created (public):", error);
       return 0;
     }
@@ -780,12 +812,12 @@ export const useContract = (): UseContractReturn => {
     return await getContractOwnerPublic();
   };
 
-  const getContractOwnerPublic = async (): Promise<string> => {
+const getContractOwnerPublic = async (): Promise<string> => {
     try {
       const contract = getReadOnlyContract("FUNDRAISERS");
-      const owner = await contract.owner();
+      const owner = await contract.owner() as string;
       return owner;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting contract owner (public):", error);
       return "";
     }
@@ -798,9 +830,9 @@ export const useContract = (): UseContractReturn => {
   const getIDRXTokenAddressPublic = async (): Promise<string> => {
     try {
       const contract = getReadOnlyContract("FUNDRAISERS");
-      const tokenAddress = await contract.idrxToken();
+      const tokenAddress = await contract.idrxToken() as string;
       return tokenAddress;
-    } catch (error: any) {
+    } catch (error) {
       console.error("❌ Error getting IDRX token address (public):", error);
       return "";
     }
@@ -825,7 +857,7 @@ const getRemainingFundForAllocation = async (): Promise<string> => {
 
     console.log("✅ Remaining for allocation:", remaining);
     return remaining.toString();
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error getting remaining fund for allocation:", error);
     return "0";
   }
@@ -838,12 +870,12 @@ const getContractIDRXBalance = async (): Promise<string> => {
     const idrxContract = getReadOnlyContract("IDRX");
     const fundraisersAddress = CONTRACT_ADDRESSES.FUNDRAISERS;
     
-    const balance = await idrxContract.balanceOf(fundraisersAddress);
+    const balance = await idrxContract.balanceOf(fundraisersAddress) as bigint;
     const formatted = ethers.formatUnits(balance, 2); // MENGGUNAKAN 2 DECIMALS
     
     console.log("✅ Contract IDRX balance:", formatted);
     return formatted;
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error getting contract IDRX balance:", error);
     return "0";
   }
@@ -872,7 +904,7 @@ const getFundAllocationStatus = async (): Promise<FundAllocationStatus> => {
 
     console.log("✅ Fund allocation status:", status);
     return status;
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error getting fund allocation status:", error);
     return {
       totalManaged: "0",

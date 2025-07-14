@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const IDRX_ADDRESS = "0x56553628F2Ec5f32674733Db8C54BF47f3822ff0";
+  const IDRX_ADDRESS = "0x24A7e58b751e42997c6f5f11165bD7FDcb3a9d80";
   
   const [deployer] = await ethers.getSigners();
   const idrxToken = await ethers.getContractAt("IDRX", IDRX_ADDRESS);

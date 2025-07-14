@@ -1,19 +1,19 @@
 "use client"
 
 import FormData from "@/components/Dashboard Comps/FormData";
-import ModalDashCard from "@/components/Dashboard Comps/ModalDashCard";
+// import ModalDashCard from "@/components/Dashboard Comps/ModalDashCard";
 import Footer from "@/components/Footer";
-import ExploreSection from "@/components/Home Comps/ExploreSection";
+// import ExploreSection from "@/components/Home Comps/ExploreSection";
 import Navbar from "@/components/Navbar";
-import { ProgramType } from "@/constants/ProgramData.constant";
+// import { ProgramType } from "@/constants/ProgramData.constant";
 import { useContract } from "@/hooks/useContract";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { Wallet, DollarSign, RefreshCw, TrendingUp, Users, Target, Activity, Coins } from 'lucide-react';
 
 export default function Dashboard() {
-    const [programData, setProgramData] = useState<ProgramType | null>(null);
-    const [cardAdminOpen, setCardAdminOpen] = useState<boolean>(false);
+    // const [programData, setProgramData] = useState<ProgramType | null>(null);
+    // const [cardAdminOpen, setCardAdminOpen] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [currentAddress, setCurrentAddress] = useState<string | null>(null);
@@ -258,12 +258,7 @@ export default function Dashboard() {
                 <div className="absolute bottom-0 right-0 h-[500px] w-[500px] bg-purple-500/10 blur-[100px]" />
             </div>
 
-            {cardAdminOpen && (
-                <ModalDashCard 
-                    program={programData} 
-                    onCardClose={() => setCardAdminOpen(false)} 
-                />
-            )}
+
 
             <FormData />
             
@@ -427,10 +422,10 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <ExploreSection 
+            {/* <ExploreSection 
                 onOpen={() => setCardAdminOpen(true)} 
                 selectedCard={setProgramData}
-            />
+            /> */}
             <Footer />
         </>
     );

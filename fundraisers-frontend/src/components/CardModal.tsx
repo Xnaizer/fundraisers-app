@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Buttons from "./Buttons"
-import { X, ExternalLink, Calendar, User, Target, DollarSign, Settings, Ban, Send, Wallet } from 'lucide-react';
+import { X, ExternalLink, Calendar, User, Target, Settings, Ban, Send, Wallet } from 'lucide-react';
 import Image from "next/image";
 import { FaGlobeAsia } from "react-icons/fa";
 import { LuClock3 } from "react-icons/lu";

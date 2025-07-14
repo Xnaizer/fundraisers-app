@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { X, Wallet, DollarSign, FileText, AlertTriangle, Info } from 'lucide-react';
+import { X, Wallet, AlertTriangle, Info } from 'lucide-react';
 import { ProgramType } from "@/constants/ProgramData.constant";
 import { useContract } from "../hooks/useContract";
 

@@ -12,6 +12,8 @@ export interface ProgramType {
   programLink: string;
   photoUrl: string;
   createdAt: string;
+  budget?: number;
+  address?: string;
 }
 
 // Export CategoryType yang missing
