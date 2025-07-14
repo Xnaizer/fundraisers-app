@@ -156,7 +156,7 @@ const convertBlockchainProgram = (program: BlockchainProgram, index: number): Pr
     }
   };
 
-  const converted = {
+  const converted: ProgramType = {
     id: typeof program.id === 'bigint' ? Number(program.id) : Number(program.id || index),
     name: program.name || 'Untitled Program',
     picName: program.picName || 'Unknown PIC',
@@ -177,24 +177,24 @@ const convertBlockchainProgram = (program: BlockchainProgram, index: number): Pr
 export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionProps) {
   const [allPrograms, setAllPrograms] = useState<ProgramType[]>([]);
   const [filteredPrograms, setFilteredPrograms] = useState<ProgramType[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>('');
   const [showMore, setShowMore] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState<'active' | ProgramStatus>('active');
   
   // Use ref to prevent infinite loops
-  const hasLoadedRef = useRef(false);
-  const isLoadingRef = useRef(false);
+  const hasLoadedRef = useRef<boolean>(false);
+  const isLoadingRef = useRef<boolean>(false);
   
   const { getAllProgramsPublic } = useContract();
 
-  // Filter programs based on status
-  const filterPrograms = (programs: ProgramType[], statusFilter: 'active' | ProgramStatus) => {
+  // Filter programs based on status - Fixed return type
+  const filterPrograms = (programs: ProgramType[], statusFilter: 'active' | ProgramStatus): ProgramType[] => {
     if (statusFilter === 'active') {
-      return programs.filter(program => program.status !== ProgramStatus.INACTIVE);
+      return programs.filter((program: ProgramType) => program.status !== ProgramStatus.INACTIVE);
     }
     
-    return programs.filter(program => program.status === statusFilter);
+    return programs.filter((program: ProgramType) => program.status === statusFilter);
   };
 
   const loadPrograms = async (): Promise<void> => {
@@ -260,12 +260,12 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
           if (!program) return false;
           
           // More comprehensive filtering
-          const isValid = program.name && 
+          const isValid = Boolean(program.name && 
                          program.name.trim() !== '' && 
                          program.name !== 'Untitled Program' &&
                          program.desc && 
                          program.desc.trim() !== '' &&
-                         program.desc !== 'No description available';
+                         program.desc !== 'No description available');
           
           console.log(`Program "${program.name}": valid=${isValid}, status=${program.status}`);
           return isValid;
@@ -349,11 +349,11 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
   const getStatusCounts = () => {
     return {
       all: allPrograms.length,
-      active: allPrograms.filter(p => p.status !== ProgramStatus.INACTIVE).length,
-      inactive: allPrograms.filter(p => p.status === ProgramStatus.INACTIVE).length,
-      registered: allPrograms.filter(p => p.status === ProgramStatus.REGISTERED).length,
-      allocated: allPrograms.filter(p => p.status === ProgramStatus.ALLOCATED).length,
-      finished: allPrograms.filter(p => p.status === ProgramStatus.FINISHED).length,
+      active: allPrograms.filter((p: ProgramType) => p.status !== ProgramStatus.INACTIVE).length,
+      inactive: allPrograms.filter((p: ProgramType) => p.status === ProgramStatus.INACTIVE).length,
+      registered: allPrograms.filter((p: ProgramType) => p.status === ProgramStatus.REGISTERED).length,
+      allocated: allPrograms.filter((p: ProgramType) => p.status === ProgramStatus.ALLOCATED).length,
+      finished: allPrograms.filter((p: ProgramType) => p.status === ProgramStatus.FINISHED).length,
     };
   };
 
@@ -589,7 +589,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
           {filteredPrograms.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-8 gap-y-12 justify-items-center sm:px-8">
-                {showProgramCard.map((program, index) => {
+                {showProgramCard.map((program: ProgramType, index: number) => {
                   const statusInfo = getStatusInfo(program.status);
                   const isInactive = program.status === ProgramStatus.INACTIVE;
                   console.log(statusInfo);
