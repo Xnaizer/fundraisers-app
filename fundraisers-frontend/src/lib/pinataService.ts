@@ -1,4 +1,3 @@
-// lib/pinataService.ts
 export interface PinataResponse {
   IpfsHash: string;
   PinSize: number;

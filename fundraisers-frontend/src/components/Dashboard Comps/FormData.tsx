@@ -269,209 +269,293 @@ export default function FormData() {
   }
 
   return (
-    <div className="bg-black py-64 min-h-screen w-full z-50 flex items-center justify-center p-4 sm:p-8 md:p-12">
-      <div className="bg-neutral-950 text-white w-full max-w-[90%] sm:max-w-2xl p-14 sm:p-16 md:p-20 mt-16 rounded-2xl relative"
-        style={{ boxShadow: '0 0 10px 1px rgba(0, 100, 255, 1)' }}>
-        
-        <h2 className="text-sm md:text-xl font-thin mb-6 text-white">
-          Add <span className="text-cyan-400 text-sm md:text-xl">Fund</span>raisers New Program
-        </h2>
+    <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen w-full py-6 md:py-12">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-5xl">
+        {/* Page Header */}
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-light text-white">
+            Add <span className="text-cyan-400 font-normal">Fund</span>raisers Program
+          </h1>
+          <p className="mt-2 text-gray-400 text-sm sm:text-base">Create a new fundraising program for the community</p>
+        </div>
 
-        {/* Admin Info */}
+        {/* Admin Status Banner */}
         {isAuthorized && currentAddress && (
-          <div className="mb-6 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-            <p className="text-green-400 text-sm">
-              ✅ Admin Access | {currentAddress.slice(0, 6)}...{currentAddress.slice(-4)}
+          <div className="mb-6 bg-green-900/20 border border-green-500/30 rounded-lg p-3 sm:p-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <p className="text-green-400 text-sm">
+                <span className="hidden xs:inline">Admin Access |</span> Connected as
+              </p>
+            </div>
+            <p className="font-mono text-sm text-white bg-black/30 px-3 py-1 rounded-md">
+              {currentAddress.slice(0, 6)}...{currentAddress.slice(-4)}
             </p>
           </div>
         )}
 
-        {/* Error Message */}
+        {/* Messages */}
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="mb-6 bg-red-900/20 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
 
-        {/* Success Message */}
         {success && (
-          <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
-            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
-            <p className="text-green-400 text-sm">{success}</p>
+          <div className="mb-6 bg-green-900/20 border border-green-500/30 rounded-lg p-4 flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-green-400 font-medium text-sm">Success!</h4>
+              <p className="text-green-300 text-sm mt-1">{success}</p>
+            </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <input
-              type="text"
-              name="programName"
-              value={formData.programName}
-              onChange={handleInputChange}
-              placeholder="Program Name"
-              className="w-full md:w-1/2 px-5 py-2 md:py-3 border-[1px] border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-              disabled={!isAuthorized || isSubmitting}
-              required
-            />
-            <input
-              type="text"
-              name="picName"
-              value={formData.picName}
-              onChange={handleInputChange}
-              placeholder="PIC Name"
-              className="w-full md:w-1/2 px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-              disabled={!isAuthorized || isSubmitting}
-              required
-            />
+        {/* Form Card */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-xl overflow-hidden">
+          {/* Form Header */}
+          <div className="bg-gray-800 px-6 py-4 border-b border-gray-700">
+            <h2 className="text-lg text-white font-medium">Program Details</h2>
+            <p className="text-gray-400 text-sm">Fill in all required information</p>
           </div>
 
-          <input
-            type="text"
-            name="addressPic"
-            value={formData.addressPic}
-            onChange={handleInputChange}
-            placeholder="Address PIC (Ethereum Address)"
-            className="w-full px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-            disabled={!isAuthorized || isSubmitting}
-            required
-          />
-
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            placeholder="Program Description"
-            className="w-full px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm resize-none"
-            rows={3}
-            disabled={!isAuthorized || isSubmitting}
-            required
-          />
-
-          <div className="flex flex-col md:flex-row gap-4">
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleInputChange}
-              className="w-full md:w-1/2 px-5 pr-10 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-sm text-neutral-400 appearance-none cursor-pointer"
-              disabled={!isAuthorized || isSubmitting}
-              required
-            >
-              <option value="">Select Category →</option>
-              <option value="Society">Society</option>
-              <option value="Environment">Environment</option>
-              <option value="Technology">Technology</option>
-              <option value="Health">Health</option>
-              <option value="Education">Education</option>
-              <option value="Emergency">Emergency</option>
-              <option value="Animals">Animals</option>
-              <option value="Sports">Sports</option>
-              <option value="Arts">Arts</option>
-              <option value="Culture">Culture</option>
-              <option value="Religious">Religious</option>
-            </select>
-
-            <input
-              type="url"
-              name="programLink"
-              value={formData.programLink}
-              onChange={handleInputChange}
-              placeholder="Program Link (Optional)"
-              className="w-full md:w-1/2 px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-              disabled={!isAuthorized || isSubmitting}
-            />
-          </div>
-
-          <div className="relative">
-            <input
-              type="number"
-              name="targetBudget"
-              value={formData.targetBudget}
-              onChange={handleInputChange}
-              placeholder="Target Budget (IDRX)"
-              step="0.01"
-              min="0"
-              className="w-full px-5 py-2 md:py-3 border border-blue-500 bg-neutral-900 rounded-md text-white placeholder:font-thin placeholder:text-sm"
-              disabled={!isAuthorized || isSubmitting}
-              required
-            />
-            {formData.targetBudget && (
-              <div className="text-xs text-cyan-400 mt-1">
-                Amount in wei: {Math.round(parseFloat(formData.targetBudget || '0') * 100)}
-              </div>
-            )}
-          </div>
-
-          {/* File Upload Section */}
-          <div className="w-full">
-            <label className="block text-sm text-gray-300 mb-2">Program Photo</label>
-            
-            {!formData.photoFile ? (
-              <div className="w-full">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="photo-upload"
-                  disabled={!isAuthorized || isSubmitting}
-                />
-                <label
-                  htmlFor="photo-upload"
-                  className="w-full px-5 py-8 border-2 border-dashed border-blue-500 bg-neutral-900 rounded-md text-white cursor-pointer hover:bg-neutral-800 transition-colors flex flex-col items-center justify-center gap-2"
-                >
-                  <Upload className="w-8 h-8 text-blue-500" />
-                  <span className="text-sm font-thin">Click to upload image</span>
-                  <span className="text-xs text-gray-400">PNG, JPG, GIF up to 10MB</span>
-                </label>
-              </div>
-            ) : (
-              <div className="w-full border border-blue-500 bg-neutral-900 rounded-md p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white truncate">{formData.photoFile.name}</span>
-                  <button
-                    type="button"
-                    onClick={removeFile}
-                    className="text-red-400 hover:text-red-300 flex-shrink-0 ml-2"
-                    disabled={isSubmitting}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+          {/* Form Content */}
+          <form onSubmit={handleSubmit} className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Left Column */}
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Program Name *</label>
+                  <input
+                    type="text"
+                    name="programName"
+                    value={formData.programName}
+                    onChange={handleInputChange}
+                    placeholder="Enter program name"
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm focus:outline-none transition-colors"
+                    disabled={!isAuthorized || isSubmitting}
+                    required
+                  />
                 </div>
-                {previewUrl && (
-                  <div className="relative w-full h-32">
-                    <Image 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          <button
-            type="submit"
-            disabled={!isAuthorized || isSubmitting || isUploading}
-            className="w-full py-2 md:py-3 mt-4 bg-cyan-400 hover:bg-cyan-500 text-white rounded-md transition duration-300 font-thin cursor-pointer border-2 border-cyan-500 text-sm md:text-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isUploading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Uploading to IPFS...
-              </>
-            ) : isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Creating Program...
-              </>
-            ) : (
-              'Add Program'
-            )}
-          </button>
-        </form>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">PIC Name *</label>
+                  <input
+                    type="text"
+                    name="picName"
+                    value={formData.picName}
+                    onChange={handleInputChange}
+                    placeholder="Person in charge name"
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm focus:outline-none transition-colors"
+                    disabled={!isAuthorized || isSubmitting}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">PIC Address *</label>
+                  <input
+                    type="text"
+                    name="addressPic"
+                    value={formData.addressPic}
+                    onChange={handleInputChange}
+                    placeholder="0x..."
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm font-mono focus:outline-none transition-colors"
+                    disabled={!isAuthorized || isSubmitting}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Category *</label>
+                  <div className="relative">
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm appearance-none focus:outline-none transition-colors"
+                      disabled={!isAuthorized || isSubmitting}
+                      required
+                    >
+                      <option value="">Select a category</option>
+                      <option value="Society">Society</option>
+                      <option value="Environment">Environment</option>
+                      <option value="Technology">Technology</option>
+                      <option value="Health">Health</option>
+                      <option value="Education">Education</option>
+                      <option value="Emergency">Emergency</option>
+                      <option value="Animals">Animals</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Arts">Arts</option>
+                      <option value="Culture">Culture</option>
+                      <option value="Religious">Religious</option>
+                    </select>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Target Budget (IDRX) *</label>
+                  <input
+                    type="number"
+                    name="targetBudget"
+                    value={formData.targetBudget}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm focus:outline-none transition-colors"
+                    disabled={!isAuthorized || isSubmitting}
+                    required
+                  />
+                  {formData.targetBudget && (
+                    <p className="text-xs text-cyan-400 mt-1.5">
+                      Wei equivalent: {Math.round(parseFloat(formData.targetBudget || '0') * 100)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Program Description *</label>
+                  <textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Describe the program and its goals"
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm focus:outline-none transition-colors resize-none"
+                    rows={4}
+                    disabled={!isAuthorized || isSubmitting}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Program Link</label>
+                  <input
+                    type="url"
+                    name="programLink"
+                    value={formData.programLink}
+                    onChange={handleInputChange}
+                    placeholder="https://..."
+                    className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 focus:border-cyan-500 rounded-lg text-white text-sm focus:outline-none transition-colors"
+                    disabled={!isAuthorized || isSubmitting}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1.5">Program Photo *</label>
+                  
+                  {!formData.photoFile ? (
+                    <div className="w-full">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="photo-upload"
+                        disabled={!isAuthorized || isSubmitting}
+                      />
+                      <label
+                        htmlFor="photo-upload"
+                        className="w-full py-5 border-2 border-dashed border-gray-600 hover:border-cyan-500 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-800 hover:bg-gray-750 transition-colors"
+                      >
+                        <Upload className="w-8 h-8 text-cyan-400" />
+                        <span className="text-sm text-gray-300">Click to upload an image</span>
+                        <span className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="border border-gray-700 rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between bg-gray-800 px-3 py-2 border-b border-gray-700">
+                        <span className="text-sm text-white truncate pr-2 max-w-[80%]">{formData.photoFile.name}</span>
+                        <button
+                          type="button"
+                          onClick={removeFile}
+                          className="text-gray-400 hover:text-red-400 p-1 rounded-full hover:bg-gray-700 transition-colors"
+                          disabled={isSubmitting}
+                          aria-label="Remove file"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {previewUrl && (
+                        <div className="relative w-full h-40">
+                          <Image 
+                            src={previewUrl} 
+                            alt="Preview" 
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
+              <button
+                type="submit"
+                disabled={!isAuthorized || isSubmitting || isUploading}
+                className="w-full sm:flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg transition duration-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Uploading to IPFS...</span>
+                  </>
+                ) : isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Creating Program...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Create Program</span>
+                  </>
+                )}
+              </button>
+              
+              {!isSubmitting && !isUploading && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({
+                      programName: '',
+                      picName: '',
+                      addressPic: '',
+                      description: '',
+                      category: '',
+                      programLink: '',
+                      targetBudget: '',
+                      photoFile: null
+                    });
+                    removeFile();
+                  }}
+                  className="w-full sm:w-auto py-3 px-6 border border-gray-600 text-gray-300 hover:bg-gray-800 rounded-lg transition duration-300 text-sm"
+                >
+                  Reset Form
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-gray-500 text-xs">
+          <p>All programs are stored on the blockchain and IPFS for transparency</p>
+        </div>
       </div>
     </div>
   );

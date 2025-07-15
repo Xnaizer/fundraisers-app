@@ -159,177 +159,179 @@ export default function WithdrawalModal({ onClose, program, isOpen }: Withdrawal
   if (!isOpen || !program) return null;
 
   return (
-    <div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-center justify-center p-4 sm:p-8 md:p-12">
-      <div
-        className="bg-black text-white w-full max-w-[90%] sm:max-w-2xl rounded-2xl relative shadow-lg overflow-hidden"
-        style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
+<div className="bg-black/40 min-h-screen w-full fixed z-50 inset-0 flex items-start sm:items-center justify-center p-2 sm:p-4 md:p-8 lg:p-12">
+  <div
+    className="bg-black text-white w-full max-w-[96%] xs:max-w-[94%] sm:max-w-[90%] md:max-w-2xl rounded-lg sm:rounded-xl md:rounded-2xl mt-20 xs:mt-16 sm:mt-8 md:mt-0 relative shadow-lg overflow-hidden max-h-[90vh] xs:max-h-[92vh] sm:max-h-[95vh] md:max-h-none overflow-y-auto"
+    style={{ boxShadow: '0 0 10px 1px rgba(0, 0, 0, 1)' }}
+  >
+    {/* Header */}
+    <div className="flex justify-between items-center p-3 sm:p-4 md:p-6 border-b border-neutral-700">
+      <div className="flex-1 min-w-0">
+        <h3 className="text-base sm:text-lg md:text-xl font-thin flex items-center gap-1.5 sm:gap-2">
+          <Wallet className="w-4 sm:w-5 h-4 sm:h-5 text-green-400 flex-shrink-0" />
+          <span className="truncate">Withdraw Fund</span>
+        </h3>
+        <p className="text-xs sm:text-sm text-neutral-400 mt-1 truncate">{program.name}</p>
+      </div>
+      <button 
+        onClick={onClose} 
+        className="text-neutral-400 hover:text-white cursor-pointer p-1.5 sm:p-2 hover:bg-neutral-900/90 bg-neutral-800/90 rounded-full transition-colors flex-shrink-0 ml-2"
+        disabled={isProcessing}
       >
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-neutral-700">
+        <X className="w-4 sm:w-5 md:w-6 h-4 sm:h-5 md:h-6" />
+      </button>
+    </div>
+
+    {/* Content */}
+    <div className="p-3 sm:p-4 md:p-6">
+      {/* Program Info */}
+      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-neutral-900 rounded-lg border border-neutral-800">
+        <h4 className="text-xs sm:text-sm font-medium text-cyan-400 mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2">
+          <Info className="w-3 sm:w-4 h-3 sm:h-4 flex-shrink-0" />
+          Program Information
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
           <div>
-            <h3 className="text-lg sm:text-xl font-thin flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-green-400" />
-              Withdraw Fund
-            </h3>
-            <p className="text-sm text-neutral-400 mt-1">{program.name}</p>
+            <p className="text-neutral-400">Program ID</p>
+            <p className="text-white font-mono break-all">{program.id}</p>
           </div>
-          <button 
-            onClick={onClose} 
-            className="text-neutral-400 hover:text-white cursor-pointer p-2 hover:bg-neutral-900/90 bg-neutral-800/90 rounded-full transition-colors"
-            disabled={isProcessing}
-          >
-            <X className="w-5 md:w-6 h-5 md:h-6" />
-          </button>
+          <div>
+            <p className="text-neutral-400">PIC Name</p>
+            <p className="text-white truncate">{program.picName}</p>
+          </div>
+          <div>
+            <p className="text-neutral-400">Total Allocated</p>
+            <p className="text-white font-medium break-words">{formatCurrency(program.allocated)} IDRX</p>
+          </div>
+          <div>
+            <p className="text-neutral-400">Available to Withdraw</p>
+            <p className="text-green-400 font-medium break-words">
+              {isLoadingFund ? (
+                <span className="animate-pulse">Loading...</span>
+              ) : (
+                `${formatCurrency(remainingFund)} IDRX`
+              )}
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Program Info */}
-          <div className="mb-6 p-4 bg-neutral-900 rounded-lg border border-neutral-800">
-            <h4 className="text-sm font-medium text-cyan-400 mb-3 flex items-center gap-2">
-              <Info className="w-4 h-4" />
-              Program Information
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-neutral-400">Program ID</p>
-                <p className="text-white font-mono">{program.id}</p>
-              </div>
-              <div>
-                <p className="text-neutral-400">PIC Name</p>
-                <p className="text-white">{program.picName}</p>
-              </div>
-              <div>
-                <p className="text-neutral-400">Total Allocated</p>
-                <p className="text-white font-medium">{formatCurrency(program.allocated)} IDRX</p>
-              </div>
-              <div>
-                <p className="text-neutral-400">Available to Withdraw</p>
-                <p className="text-green-400 font-medium">
-                  {isLoadingFund ? (
-                    <span className="animate-pulse">Loading...</span>
-                  ) : (
-                    `${formatCurrency(remainingFund)} IDRX`
-                  )}
-                </p>
-              </div>
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <AlertTriangle className="w-3 sm:w-4 h-3 sm:h-4 text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-red-400 text-xs sm:text-sm break-words">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {success && (
+        <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <div className="text-green-400 mt-0.5 text-sm sm:text-base">✅</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-green-400 text-xs sm:text-sm font-medium">Success</p>
+              <p className="text-green-300 text-xs sm:text-sm mt-0.5 sm:mt-1 break-words">{success}</p>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                <p className="text-red-400 text-sm">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <div className="flex items-start gap-2">
-                <div className="text-green-400 mt-0.5">✅</div>
-                <div>
-                  <p className="text-green-400 text-sm font-medium">Success</p>
-                  <p className="text-green-300 text-sm mt-1">{success}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Form */}
-          <div className="space-y-4">
-            {/* Amount Input */}
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Withdrawal Amount (IDRX) *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={amount}
-                  onChange={handleAmountChange}
-                  placeholder="0.00"
-                  className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none transition-colors"
-                  disabled={isProcessing}
-                />
-                <button
-                  type="button"
-                  onClick={() => setAmount(remainingFund)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-cyan-400 hover:text-cyan-300 px-2 py-1 bg-cyan-500/10 rounded transition-colors"
-                  disabled={isProcessing}
-                >
-                  Max
-                </button>
-              </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                Available: {formatCurrency(remainingFund)} IDRX
-              </p>
-            </div>
-
-            {/* Description Input */}
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Description/Purpose *
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  setError('');
-                }}
-                placeholder="Describe the purpose of this withdrawal (minimum 10 characters)"
-                rows={4}
-                className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none transition-colors resize-none"
-                disabled={isProcessing}
-              />
-              <p className="text-xs text-neutral-400 mt-1">
-                {description.length}/500 characters (minimum 10)
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-4 mt-6">
+      {/* Form */}
+      <div className="space-y-3 sm:space-y-4">
+        {/* Amount Input */}
+        <div>
+          <label className="block text-xs sm:text-sm text-gray-300 mb-1.5 sm:mb-2">
+            Withdrawal Amount (IDRX) *
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={amount}
+              onChange={handleAmountChange}
+              placeholder="0.00"
+              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none transition-colors text-sm sm:text-base"
+              disabled={isProcessing}
+            />
             <button
-              onClick={onClose}
-              className="flex-1 py-3 px-4 border border-neutral-600 text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors"
+              type="button"
+              onClick={() => setAmount(remainingFund)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-cyan-400 hover:text-cyan-300 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-cyan-500/10 rounded transition-colors"
               disabled={isProcessing}
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleWithdraw}
-              disabled={isProcessing || !amount || !description.trim()}
-              className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isProcessing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Wallet className="w-4 h-4" />
-                  Withdraw Fund
-                </>
-              )}
+              Max
             </button>
           </div>
+          <p className="text-xs text-neutral-400 mt-1">
+            Available: {formatCurrency(remainingFund)} IDRX
+          </p>
+        </div>
 
-          {/* Warning */}
-          <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-yellow-300">
-                <p className="font-medium mb-1">Important Notice:</p>
-                <p>This withdrawal will be recorded on the blockchain and cannot be reversed. Make sure the amount and description are correct.</p>
-              </div>
-            </div>
+        {/* Description Input */}
+        <div>
+          <label className="block text-xs sm:text-sm text-gray-300 mb-1.5 sm:mb-2">
+            Description/Purpose *
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setError('');
+            }}
+            placeholder="Describe the purpose of this withdrawal (minimum 10 characters)"
+            rows={3}
+            className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:border-cyan-500 focus:outline-none transition-colors resize-none text-sm sm:text-base"
+            disabled={isProcessing}
+          />
+          <p className="text-xs text-neutral-400 mt-1">
+            {description.length}/500 characters (minimum 10)
+          </p>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 md:gap-4 mt-4 sm:mt-6">
+        <button
+          onClick={onClose}
+          className="flex-1 py-2.5 sm:py-3 px-3 sm:px-4 border border-neutral-600 text-neutral-300 rounded-lg hover:bg-neutral-800 transition-colors text-sm sm:text-base"
+          disabled={isProcessing}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleWithdraw}
+          disabled={isProcessing || !amount || !description.trim()}
+          className="flex-1 py-2.5 sm:py-3 px-3 sm:px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base"
+        >
+          {isProcessing ? (
+            <>
+              <div className="w-3 sm:w-4 h-3 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span className="hidden xs:inline">Processing...</span>
+              <span className="xs:hidden">Processing</span>
+            </>
+          ) : (
+            <>
+              <Wallet className="w-3 sm:w-4 h-3 sm:h-4" />
+              <span className="hidden xs:inline">Withdraw Fund</span>
+              <span className="xs:hidden">Withdraw</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Warning */}
+      <div className="mt-3 sm:mt-4 p-2.5 sm:p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+        <div className="flex items-start gap-1.5 sm:gap-2">
+          <AlertTriangle className="w-3 sm:w-4 h-3 sm:h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-yellow-300">
+            <p className="font-medium mb-1">Important Notice:</p>
+            <p className="leading-relaxed">This withdrawal will be recorded on the blockchain and cannot be reversed. Make sure the amount and description are correct.</p>
           </div>
         </div>
       </div>
     </div>
+  </div>
+</div>
   );
 }
