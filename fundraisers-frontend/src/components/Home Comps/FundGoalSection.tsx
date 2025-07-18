@@ -51,17 +51,50 @@ export default function FundGoalSection() {
     loadDashboardData();
   }, []);
 
-  // Format number to Indonesian Rupiah format
-  const formatToIDR = (amount: string) => {
+  // Format number to abbreviated format (100jt, 1 miliar, etc.)
+  const formatToAbbreviated = (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount)) return "Rp 0";
 
+    // Define abbreviations
+    const abbreviations = [
+      { value: 1_000_000_000_000, suffix: " trilion" },
+      { value: 1_000_000_000, suffix: " miliar" },
+      { value: 1_000_000, suffix: " juta" },
+      { value: 1_000, suffix: " ribu" },
+    ];
+
+    // Find the appropriate abbreviation
+    for (const { value, suffix } of abbreviations) {
+      if (numAmount >= value) {
+        const abbreviated = (numAmount / value).toFixed(1);
+        // Remove .0 if it's a whole number
+        const cleanNumber = abbreviated.endsWith('.0') ? abbreviated.slice(0, -2) : abbreviated;
+        return `Rp ${cleanNumber}${suffix}`;
+      }
+    }
+
+    // For amounts less than 1,000, format normally
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(numAmount);
+  };
+
+  // Format number for programs (also abbreviated if needed)
+  const formatProgramCount = (count: number) => {
+    if (count >= 1_000_000) {
+      const abbreviated = (count / 1_000_000).toFixed(1);
+      const cleanNumber = abbreviated.endsWith('.0') ? abbreviated.slice(0, -2) : abbreviated;
+      return `${cleanNumber} juta`;
+    } else if (count >= 1_000) {
+      const abbreviated = (count / 1_000).toFixed(1);
+      const cleanNumber = abbreviated.endsWith('.0') ? abbreviated.slice(0, -2) : abbreviated;
+      return `${cleanNumber} ribu`;
+    }
+    return count.toString();
   };
 
   return (
@@ -110,7 +143,7 @@ export default function FundGoalSection() {
             ) : (
               <>
                 <h2 className="text-sm sm:text-2xl md:text-2xl lg:text-3xl font-medium text-white">
-                  {formatToIDR(totalManagedFund)}
+                  {formatToAbbreviated(totalManagedFund)}
                 </h2>
                 <p className="text-sm sm:text-lg pt-2 sm:pt-4 text-gray-300">
                   IDRX Stablecoin
@@ -134,7 +167,7 @@ export default function FundGoalSection() {
             ) : (
               <>
                 <h2 className="text-lg sm:text-3xl md:text-4xl font-semibold text-white">
-                  {totalPrograms}
+                  {formatProgramCount(totalPrograms)}
                 </h2>
                 <p className="text-sm sm:text-lg text-white md:pt-4 pt-1">
                   Projects
@@ -148,5 +181,5 @@ export default function FundGoalSection() {
         </motion.div>
       </div>
     </section>
-  );
+  )
 }

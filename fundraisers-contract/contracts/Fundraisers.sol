@@ -101,7 +101,7 @@ contract Fundraisers {
 
         programs.push(newProgram);
 
-        // Emit event dengan data ringkas untuk menghindari stack too deep1
+        // Emit event dengan data ringkas untuk menghindari stack too deep
         emit ProgramCreated(newId, input.name, input.target, input.pic);
     }
 

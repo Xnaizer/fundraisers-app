@@ -1,19 +1,27 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const IDRX_ADDRESS = "0x24A7e58b751e42997c6f5f11165bD7FDcb3a9d80";
+  const IDRX_ADDRESS = "0x9dcf868Cdf175b31C7288D5eC407E591bf1a9bdD";
   
   // Multiple recipients
   const recipients = [
     {
-      address: "0xCb0C37D66368EF6693A82f06F24ce31D7533C088",
-      amount: "1000000000000000000000000" // 1 million IDRX
+      address: "0x164FFFBf2eA7094fF39c140C136e16497F0fd00D",
+      amount: "30000000" 
     },
     {
-      address: "0x3ff8C245C6499062A98Ed214EA606Ec5fa2627Dd",
-      amount: "2000000" // 2 million IDRX
+      address: "0x70c4652cd86D9686CcF5F2C6F98c89677a67509e",
+      amount: "100000000" 
+    },
+    {
+      address: "0xCc59c77D64C3Cb032831251041a7D9F0d8395FC1",
+      amount: "50000000" 
+    },
+    {
+      address: "0x4Fd3FF28Afbc25fDE4E433df061A6dc0eF1f160c",
+      amount: "30000000" 
     }
-    // Tambahkan alamat lain jika diperlukan
+   
   ];
   
   const [deployer] = await ethers.getSigners();

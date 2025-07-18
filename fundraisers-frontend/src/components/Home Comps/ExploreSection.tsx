@@ -2,7 +2,7 @@
 
 import { ProgramType, CategoryType } from "@/constants/ProgramData.constant";
 import ProgramCard from "../ProgramCard";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Buttons from "../Buttons";
 import { useContract } from "../../hooks/useContract";
 import { ethers } from "ethers";
@@ -34,6 +34,12 @@ enum ProgramStatus {
   ALLOCATED = 2,
   FINISHED = 3
 }
+
+// GLOBAL STATE - Deklarasi di luar component agar benar-benar global
+let globalHasLoaded = false;
+let globalPrograms: ProgramType[] = [];
+let globalIsLoading = false;
+let globalError = '';
 
 // Status display information
 const getStatusInfo = (status: number) => {
@@ -175,20 +181,16 @@ const convertBlockchainProgram = (program: BlockchainProgram, index: number): Pr
 };
 
 export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionProps) {
-  const [allPrograms, setAllPrograms] = useState<ProgramType[]>([]);
+  const [allPrograms, setAllPrograms] = useState<ProgramType[]>(globalPrograms);
   const [filteredPrograms, setFilteredPrograms] = useState<ProgramType[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(globalIsLoading);
+  const [error, setError] = useState<string>(globalError);
   const [showMore, setShowMore] = useState<boolean>(false);
   const [selectedStatus, setSelectedStatus] = useState<'active' | ProgramStatus>('active');
   
-  // Use ref to prevent infinite loops
-  const hasLoadedRef = useRef<boolean>(false);
-  const isLoadingRef = useRef<boolean>(false);
-  
   const { getAllProgramsPublic } = useContract();
 
-  // Filter programs based on status - Fixed return type
+  // Filter programs based on status
   const filterPrograms = (programs: ProgramType[], statusFilter: 'active' | ProgramStatus): ProgramType[] => {
     if (statusFilter === 'active') {
       return programs.filter((program: ProgramType) => program.status !== ProgramStatus.INACTIVE);
@@ -198,19 +200,20 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
   };
 
   const loadPrograms = async (): Promise<void> => {
-    // Prevent multiple concurrent calls
-    if (isLoadingRef.current) {
-      console.log('⚠️ Already loading, skipping...');
+    // Skip if already loaded globally or currently loading
+    if (globalHasLoaded || globalIsLoading) {
+      console.log('⚠️ Programs already loaded globally or loading in progress, skipping...');
       return;
     }
 
     const startTime = Date.now();
-    console.log('🔍 Starting loadPrograms...');
+    console.log('🔍 Starting GLOBAL loadPrograms...');
     
     try {
-      isLoadingRef.current = true;
+      globalIsLoading = true;
       setLoading(true);
       setError('');
+      globalError = '';
       
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -240,9 +243,13 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       if (blockchainPrograms.length === 0) {
         console.log('📭 No programs found on blockchain');
+        globalPrograms = [];
         setAllPrograms([]);
         setFilteredPrograms([]);
-        setError('No programs found. Be the first to create one!');
+        const errorMsg = 'No programs found. Be the first to create one!';
+        setError(errorMsg);
+        globalError = errorMsg;
+        globalHasLoaded = true; // Mark as loaded even if empty
         return;
       }
       
@@ -273,19 +280,25 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       console.log('✅ Valid programs after filtering:', convertedPrograms.length);
       
+      // Store globally
+      globalPrograms = convertedPrograms;
+      setAllPrograms(convertedPrograms);
+      
       // Apply current filter
       const filtered = filterPrograms(convertedPrograms, selectedStatus);
-      
-      setAllPrograms(convertedPrograms);
       setFilteredPrograms(filtered);
-      hasLoadedRef.current = true;
+      
+      globalHasLoaded = true; // Mark as successfully loaded globally
       
       if (filtered.length === 0 && convertedPrograms.length > 0) {
-        if (selectedStatus === 'active') {
-          setError('No active programs found. All programs are currently inactive.');
-        } else {
-          setError(`No programs found with status: ${selectedStatus}`);
-        }
+        const errorMsg = selectedStatus === 'active' 
+          ? 'No active programs found. All programs are currently inactive.'
+          : `No programs found with status: ${selectedStatus}`;
+        setError(errorMsg);
+        globalError = errorMsg;
+      } else {
+        setError(''); // Clear error if data loaded successfully
+        globalError = '';
       }
       
     } catch (error) {
@@ -302,46 +315,65 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
       
       // More specific error messages
       if (errorMessage.includes('timeout')) {
-        setError('Request timed out. The blockchain network might be slow.');
+        errorMessage = 'Request timed out. The blockchain network might be slow.';
       } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        setError('Network error. Please check your internet connection.');
+        errorMessage = 'Network error. Please check your internet connection.';
       } else if (errorMessage.includes('contract') || errorMessage.includes('revert')) {
-        setError('Smart contract error. The contract might not be deployed.');
+        errorMessage = 'Smart contract error. The contract might not be deployed.';
       } else if (errorMessage.includes('429')) {
-        setError('Too many requests. Please wait a moment before trying again.');
+        errorMessage = 'Too many requests. Please wait a moment before trying again.';
       } else {
-        setError(`Failed to load programs: ${errorMessage.substring(0, 100)}`);
+        errorMessage = `Failed to load programs: ${errorMessage.substring(0, 100)}`;
       }
+      
+      setError(errorMessage);
+      globalError = errorMessage;
       
     } finally {
       setLoading(false);
-      isLoadingRef.current = false;
+      globalIsLoading = false;
     }
   };
 
-  // Use effect with proper dependency and loading guard
+  // Load programs only once when component first mounts
   useEffect(() => {
-    if (!hasLoadedRef.current && !isLoadingRef.current) {
+    console.log('🚀 ExploreSection mounted, globalHasLoaded:', globalHasLoaded);
+    
+    // If data already exists globally, use it immediately
+    if (globalHasLoaded) {
+      console.log('✅ Using existing global data');
+      setAllPrograms(globalPrograms);
+      setError(globalError);
+      const filtered = filterPrograms(globalPrograms, selectedStatus);
+      setFilteredPrograms(filtered);
+    } else {
+      // Only load if not already loaded and not currently loading
+      console.log('🔄 Loading programs for the first time');
       loadPrograms();
     }
-  }, []); // Empty dependency array - only run once on mount
+  }, []); // Empty dependency - only run on mount
 
-  // Update filtered programs when status filter changes
+  // Update filtered programs when status filter changes (but don't reload data)
   useEffect(() => {
     if (allPrograms.length > 0) {
       const filtered = filterPrograms(allPrograms, selectedStatus);
       setFilteredPrograms(filtered);
       setShowMore(false); // Reset show more when filter changes
-      setError(''); // Clear errors when filter changes
     }
   }, [selectedStatus, allPrograms]);
 
   const showProgramCard = showMore ? filteredPrograms : filteredPrograms.slice(0, 6);
 
-  // Manual refresh function
+  // Manual refresh function - forces global reload
   const handleRefresh = (): void => {
-    console.log('🔄 Manual refresh triggered');
-    hasLoadedRef.current = false;
+    console.log('🔄 Manual refresh triggered - forcing global reload');
+    globalHasLoaded = false;
+    globalIsLoading = false;
+    globalPrograms = [];
+    globalError = '';
+    setError('');
+    setAllPrograms([]);
+    setFilteredPrograms([]);
     loadPrograms();
   };
 
@@ -362,8 +394,8 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
     setSelectedStatus(status);
   };
 
-  // Loading state with better skeleton and debug info
-  if (loading && allPrograms.length === 0) {
+  // Loading state - only show if it's the first time loading globally
+  if (loading && !globalHasLoaded) {
     return (
       <section
         id="ExploreSection"
@@ -413,16 +445,7 @@ export default function ExploreSection({ onOpen, selectedCard }: ExploreSectionP
                 <div className="w-6 h-6 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
                 <span>Loading programs from blockchain...</span>
               </div>
-              <button
-                onClick={() => {
-                  isLoadingRef.current = false;
-                  setLoading(false);
-                  setError('Loading cancelled by user');
-                }}
-                className="text-xs text-red-400 hover:text-red-300 underline"
-              >
-                Cancel Loading
-              </button>
+              <p className="text-xs text-neutral-400">This will only load once per session</p>
             </div>
           </div>
         </div>

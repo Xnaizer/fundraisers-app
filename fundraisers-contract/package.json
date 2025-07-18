@@ -7,7 +7,7 @@
     "test": "npx hardhat test",
     "test:coverage": "npx hardhat coverage",
     "deploy:local": "npx hardhat run scripts/deploy-taskmanager.ts --network hardhat",
-    "deploy:testnet": "npx hardhat run scripts/deploy-taskmanager.ts --network lisk-sepolia",
+    "deploy:testnet": "npx hardhat run scripts/deploy-fixed.ts --network lisk-sepolia",
     "node": "npx hardhat node"
   },
   "keywords": [],

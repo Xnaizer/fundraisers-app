@@ -269,7 +269,7 @@ export default function FormData() {
   }
 
   return (
-    <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen w-full py-6 md:py-12">
+    <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen w-full py-16 md:py-24">
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-5xl">
         {/* Page Header */}
         <div className="mb-8 text-center">
